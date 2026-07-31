@@ -11,7 +11,8 @@ evidence is indistinguishable from a fluent guess.
 
 ## Status
 
-Pre-implementation. Requirements and design are settled; `src/` is empty.
+In beta. `evaluate_position` is implemented and tested; see [CLAUDE.md](CLAUDE.md) for
+what's left before `legacy/` is retired.
 
 - **[docs/prd.md](docs/prd.md)** — what it does and why
 - **[CONTEXT.md](CONTEXT.md)** — domain glossary
@@ -22,7 +23,9 @@ Pre-implementation. Requirements and design are settled; `src/` is empty.
 
 ```bash
 docker compose up -d engine    # Stockfish 18 (bmi2, checksum-pinned) on :8090
-npm ci && npm start            # MCP handler on :8091
+npm ci                         # never `npm install` — see CLAUDE.md
+npm test
+npm start                      # MCP handler on :8091
 
 claude mcp add --transport http chess http://localhost:8091/mcp
 ```

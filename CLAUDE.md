@@ -12,7 +12,11 @@ with measurements: `docs/decisions.md`. Notation and protocol standards: `docs/r
 
 ## Status
 
-Pre-implementation. Docs and engine container are landed; `src/` is empty.
+`evaluate_position` answers a bare FEN or a Move Sequence with an Evaluation, its Evidence,
+and optionally a scored Candidate Move, addressed by ply or by move number, with every
+ambiguous input erroring, and repeated questions served from an engine-keyed LRU cache
+(tickets 03–09). Remaining: ship and retire `legacy/` — see
+`.scratch/evaluate-position-v1/issues/`.
 
 ## Commands
 
@@ -20,6 +24,7 @@ Pre-implementation. Docs and engine container are landed; `src/` is empty.
 docker compose up -d engine   # Stockfish 18 (bmi2) on :8090
 npm ci                        # never `npm install` — see below
 npm test
+npm start                     # MCP handler on :8091
 ```
 
 Engine on **:8090**, MCP handler on **:8091**. Connect with:
