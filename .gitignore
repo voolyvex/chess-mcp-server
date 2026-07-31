@@ -9,3 +9,7 @@ coverage/
 # the authoritative copy lives at github.com/voolyvex/chess-context.
 # See docs/decisions.md #12.
 legacy/
+
+# Working notes — issue breakdowns and scratch files that track the build in
+# progress. Not product, and not history worth keeping once the work lands.
+.scratch/
