@@ -1,0 +1,22 @@
+{
+  "name": "chess-mcp-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Stateless HTTP MCP server exposing evaluate_position with engine-traceable evidence",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "npm run typecheck && vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@types/node": "20.19.9",
+    "stockfish": "18.0.8",
+    "typescript": "5.9.2",
+    "vitest": "3.2.4"
+  }
+}
