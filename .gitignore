@@ -1,0 +1,11 @@
+node_modules/
+dist/
+coverage/
+.env
+*.log
+
+# Reference copy of the superseded chess-context prototype, kept only while
+# porting. Deliberately untracked so deleting it leaves no history residue —
+# the authoritative copy lives at github.com/voolyvex/chess-context.
+# See docs/decisions.md #12.
+legacy/
