@@ -46,7 +46,13 @@ COPY --from=engine /usr/local/bin/stockfish /usr/local/bin/stockfish
 COPY --from=deps /app/node_modules ./node_modules
 COPY server.js ./
 
+# The build is not something the engine reports over UCI, so it is carried forward from
+# the build arg above. It is part of the engine identity the handler keys its cache on:
+# two containers differing only in build are two different engines.
+ARG SF_BUILD=bmi2
+
 ENV STOCKFISH_PATH=/usr/local/bin/stockfish \
+    STOCKFISH_BUILD=${SF_BUILD} \
     STOCKFISH_THREADS=4 \
     STOCKFISH_HASH=256 \
     STOCKFISH_PORT=8090 \
