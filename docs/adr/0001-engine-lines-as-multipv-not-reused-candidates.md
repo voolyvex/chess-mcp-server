@@ -36,6 +36,20 @@ search relies on, and "evals outside the [aspiration] window are totally unrelia
 ranks below 1. There is no `Threads`/`Hash` tuning that closes this gap — it is an
 algorithmic property of how MultiPV search works, not a configuration choice.
 
+A later measurement on the same position, taken while writing the operator skill, shows the
+effect at the rank this decision actually turns on. The move `a3`, 4s budget both ways:
+
+| Asked as | Score | Depth |
+|---|---|---|
+| Engine Line, rank 3 | +28 | 10 |
+| Candidate Move (dedicated search) | +37 | 19 |
+
+Nine centipawns and nine plies apart, for the same move in the same position. Read from the
+ranking, `a3` looks like a distinctly third-best option; searched on its own terms it is
+1 cp behind best. The rank-1 rows above understate the problem, because rank 1 is the line
+MultiPV searches *most* like a solo search — the divergence grows as rank falls, which is
+precisely where a substitution would be tempting.
+
 ## Decision
 
 Two domain terms, not one:

@@ -15,8 +15,10 @@ with measurements: `docs/decisions.md`. Notation and protocol standards: `docs/r
 `evaluate_position` answers a bare FEN or a Move Sequence with an Evaluation, its Evidence,
 the Position's legal moves, and optionally a scored Candidate Move or a ranking of Engine
 Lines, addressed by ply or by move number, with every ambiguous input erroring, and repeated
-questions served from an engine-keyed LRU cache (tickets 03–09). Remaining: the operator
-skill (ADR-0003), then ship and retire `legacy/` — see `.scratch/evaluate-position-v1/issues/`.
+questions served from an engine-keyed LRU cache (tickets 03–09). Operator discipline ships
+as a repo skill, `.claude/skills/chess-engine-operator/` (ADR-0003), versioned with the
+schema it describes. Remaining: ship and retire `legacy/` — see
+`.scratch/evaluate-position-v1/issues/`.
 
 ## Commands
 
@@ -46,8 +48,10 @@ Engine on **:8090**, MCP handler on **:8091**. Connect with:
 ```
 CONTEXT.md          domain glossary — read before naming anything
 docs/               prd.md · decisions.md · references.md
+docs/adr/           one architecture decision per file, with its measurements
 engine/             Stockfish container: Dockerfile (pinned) + HTTP-to-UCI bridge
 src/                the stateless MCP handler
+.claude/skills/     operator discipline, versioned with the schema it describes
 legacy/             gitignored reference copy of the superseded prototype
 ```
 
