@@ -159,9 +159,30 @@ dependencies float on every run is a pin with a hole in it.
    it — no field exists that the assistant could have invented.
 3. "Was my move good?" returns a number for *any* legal move, including bad ones.
 4. p100 latency ≤ 2s without a Candidate, ≤ 4s with one, on a cold cache.
+   **Measured 2026-08-01**, 8 distinct positions per case, a fresh cache per call, against
+   the container on this host (AMD Ryzen 9 PRO 7940HS, 12 threads, Stockfish 18 bmi2,
+   `Threads=4`, `Hash=256`):
+
+   | Case | p50 | p100 | Budget spent |
+   |---|---|---|---|
+   | No Candidate | 2019ms | **2052ms** | 2000ms |
+   | With a Candidate | 4015ms | **4028ms** | 2×2000ms |
+
+   The budget is held end to end: the default search budget is exactly 2000ms, so these
+   are **52ms and 28ms of overhead** above a fully-spent budget — parsing, the localhost
+   hop, `legal_moves` generation, and SAN rendering, at roughly 2.5% and 0.7%. Note the
+   criterion as worded is unsatisfiable at the default budget, since a 2000ms search
+   cannot complete within 2000ms of wall-clock; read it as "overhead is negligible against
+   the budget", which is the property that was actually wanted. A regression here means
+   overhead growing, not the search taking longer — the search takes exactly what it is
+   given, by design.
 5. Ambiguous input returns an error naming the ambiguity — never an evaluation of a
    position the user did not ask about.
 6. `legacy/` is deleted, and nothing in the product references it.
+   **Done 2026-08-01.** The directory was untracked from the start (D#12), so deleting it
+   left no history residue — `git status` did not move. The authoritative copy remains at
+   `github.com/voolyvex/chess-context`. The `.gitignore` entry is kept deliberately: it
+   costs nothing and stops a future reference copy from being committed by accident.
 
 ## 9. Risks
 

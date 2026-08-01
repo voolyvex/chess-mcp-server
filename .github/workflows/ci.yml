@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.19'
+          cache: npm
+
+      # `npm ci`, never `npm install`. It installs from the committed lockfile and fails
+      # outright when the lockfile has drifted from the manifest, rather than quietly
+      # rewriting it — pinning the engine by checksum while the JS dependencies float on
+      # every run is a pin with a hole in it.
+      - run: npm ci
+
+      # Tier 1 (fake engine) and tier 2 WASM run here; the WASM package needs no Docker.
+      # Container-path tests skip cleanly — the engine is deliberately not started in CI.
+      # Adding it later is a `services:` block and a ~15s warm-cache cost.
+      #
+      # Nothing here assumes AVX-512: the hosted runner pool mixes Intel Ice Lake, which
+      # has it, with AMD EPYC Zen 3, which does not. WASM has no such requirement, and the
+      # `bmi2` container pin exists so this stays true when the engine is added.
+      - run: npm test
