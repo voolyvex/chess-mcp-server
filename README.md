@@ -1,10 +1,10 @@
 # chess-mcp-server
 
-An MCP server that gives a chat assistant a real chess engine. Ask about a position and
+An MCP server that gives a chat assistant a (Stockfish) chess engine. Ask about a position and
 get back an evaluation, the engine's best line, a ranking of the top options, and an
 optional comparison against a move you are considering.
 
-Every number in the response comes from a search that actually ran, and ships with the
+Every number in the response comes from a verified search, and ships with the
 evidence for it: the engine and build that produced it, the depth reached, the node count,
 and the principal variation. The server returns numbers, not sentences. Your assistant
 writes the explanation.
@@ -20,10 +20,6 @@ docker compose up -d engine    # Stockfish 18 on :8090
 npm ci
 npm start                      # MCP server on :8091
 ```
-
-Stockfish ships with the project. `docker compose up` downloads a checksum-pinned
-Stockfish 18 binary and wraps it in a small HTTP service, so there is nothing to install
-by hand and no engine version drift between machines.
 
 ## Connecting an assistant
 
@@ -71,16 +67,16 @@ Options:
 - `multipv` (1 to 5) ranks that many moves in a single search, instead of asking about
   each one separately.
 
-Every response includes the position's legal moves, so a move can be checked before it is
-claimed.
+A list of the position's legal moves is with every response, reducing hallucination.
 
-Scores are White-relative: positive favours White no matter whose turn it is. The
-side-to-move-relative number the engine emitted ships alongside it, so the conversion can
-be checked rather than trusted.
+## Default engine
+
+Stockfish comes default with the project. `docker compose up` downloads a checksum-pinned
+Stockfish 18 binary and wraps it in a small HTTP service, no manual install 
 
 ## Using a different engine
 
-Any UCI engine works. The server talks to an HTTP service, not to a binary, and it picks up
+Any UCI engine works. The server talks to an HTTP service, and it picks up
 the engine's identity at runtime, so swapping engines needs no code change.
 
 Point `engine/Dockerfile` at a different binary and rebuild:
@@ -97,15 +93,6 @@ Or run your engine's HTTP service anywhere and point the server at it:
 ENGINE_URL=http://localhost:8095 npm start
 ```
 
-Either way the engine's real name and version flow through to `evidence`, and the response
-cache keys on them, so two engines never share cached results.
-
-Verified with Fairy-Stockfish 14 in place of Stockfish 18: responses came back with
-`"engine": "Fairy-Stockfish"`, `"engine_version": "14"`, and depth 17 at multipv 3, with no
-code change.
-
-One caveat: depth numbers are not comparable across engines. Depth 20 from two different
-engines are two different amounts of work.
 
 ## Configuration
 
@@ -117,8 +104,8 @@ engines are two different amounts of work.
 | `STOCKFISH_HASH` | `256` | Engine hash table, in MB |
 | `STOCKFISH_MOVETIME` | `2000` | Default search budget, in milliseconds |
 
-Search time is the budget and depth is the result. A longer budget reaches a deeper search;
-the depth that was actually reached is always reported.
+A longer search time budget reaches a deeper search;
+the depth that it reached is reported.
 
 ## More
 
