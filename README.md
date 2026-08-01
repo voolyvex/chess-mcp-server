@@ -1,55 +1,132 @@
 # chess-mcp-server
 
-A stateless MCP server that gives a chat assistant the power of a chess engine — where
-**every number in the answer is traceable to a search that actually happened.**
+An MCP server that gives a chat assistant a real chess engine. Ask about a position and
+get back an evaluation, the engine's best line, a ranking of the top options, and an
+optional comparison against a move you are considering.
 
-Ask about a position and get back an evaluation, the engine's best line, and an optional
-comparison against a move you're considering. The response is numbers and provenance —
-depth reached, engine build, node count, principal variation — and no prose. The assistant
-writes the prose; the server never narrates. That's the point: an evaluation without
-evidence is indistinguishable from a fluent guess.
+Every number in the response comes from a search that actually ran, and ships with the
+evidence for it: the engine and build that produced it, the depth reached, the node count,
+and the principal variation. The server returns numbers, not sentences. Your assistant
+writes the explanation.
 
-## Status
+## Requirements
 
-v1. `evaluate_position` is implemented, tested, and measured; the prototype it replaces has
-been retired. See [CLAUDE.md](CLAUDE.md) for the current shape and
-[docs/adr/](docs/adr/) for the decisions behind it.
-
-- **[docs/prd.md](docs/prd.md)** — what it does and why
-- **[CONTEXT.md](CONTEXT.md)** — domain glossary
-- **[docs/decisions.md](docs/decisions.md)** — 19 decisions, each with the measurement behind it
-- **[docs/references.md](docs/references.md)** — PGN, FEN, SAN, UCI standards
+Docker (for the engine) and Node 20.19 or newer.
 
 ## Quick start
 
 ```bash
-docker compose up -d engine    # Stockfish 18 (bmi2, checksum-pinned) on :8090
-npm ci                         # never `npm install` — see CLAUDE.md
-npm test
-npm start                      # MCP handler on :8091
+docker compose up -d engine    # Stockfish 18 on :8090
+npm ci
+npm start                      # MCP server on :8091
+```
 
+Stockfish ships with the project. `docker compose up` downloads a checksum-pinned
+Stockfish 18 binary and wraps it in a small HTTP service, so there is nothing to install
+by hand and no engine version drift between machines.
+
+## Connecting an assistant
+
+The server speaks streamable HTTP MCP at `http://localhost:8091/mcp`.
+
+Claude Code:
+
+```bash
 claude mcp add --transport http chess http://localhost:8091/mcp
 ```
 
+Codex, in `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.chess]
+url = "http://localhost:8091/mcp"
+```
+
+Gemini CLI, in `~/.gemini/settings.json`:
+
+```json
+{ "mcpServers": { "chess": { "httpUrl": "http://localhost:8091/mcp" } } }
+```
+
+GitHub Copilot in VS Code, in `.vscode/mcp.json`:
+
+```json
+{ "servers": { "chess": { "type": "http", "url": "http://localhost:8091/mcp" } } }
+```
+
+Other clients follow one of these two shapes. Most want a name and a URL; the field is
+usually `url`, sometimes `httpUrl`, and VS Code puts servers under `servers` rather than
+`mcpServers`.
+
 ## The tool
 
-`evaluate_position` — accepts a FEN, a move list, a move list from a given FEN, or a full
-PGN. Address any position in the sequence by `ply` or by `move_number` + `side`. Pass a
-`candidate` move to find out how it compares to the engine's choice, or `multipv` (1–5) to
-rank several options in one search. Every response carries the position's `legal_moves`, so
-a move can be checked before it is claimed.
+`evaluate_position` accepts a FEN, a list of moves, a list of moves from a starting FEN, or
+a full PGN. When you pass a sequence, address any position in it by `ply` or by
+`move_number` plus `side`.
 
-Scores are **White-relative**: positive favours White regardless of whose turn it is. The
-side-to-move-relative number the engine actually emitted ships alongside, so the conversion
-is auditable.
+Options:
 
-Operator discipline — read the depth before trusting a number, never name a move no search
-touched — ships as a skill in
-[`.claude/skills/chess-engine-operator/`](.claude/skills/chess-engine-operator/SKILL.md),
-versioned with the schema it describes.
+- `candidate` scores a specific move against the engine's choice, so you can ask "is this
+  move bad?" and get an answer even when the move is terrible.
+- `multipv` (1 to 5) ranks that many moves in a single search, instead of asking about
+  each one separately.
 
-Replaces the 13-tool stdio prototype at
-[voolyvex/chess-context](https://github.com/voolyvex/chess-context).
+Every response includes the position's legal moves, so a move can be checked before it is
+claimed.
+
+Scores are White-relative: positive favours White no matter whose turn it is. The
+side-to-move-relative number the engine emitted ships alongside it, so the conversion can
+be checked rather than trusted.
+
+## Using a different engine
+
+Any UCI engine works. The server talks to an HTTP service, not to a binary, and it picks up
+the engine's identity at runtime, so swapping engines needs no code change.
+
+Point `engine/Dockerfile` at a different binary and rebuild:
+
+```dockerfile
+RUN curl -fsSL -o /usr/local/bin/engine "https://example.com/your-engine" \
+ && chmod 0755 /usr/local/bin/engine
+ENV STOCKFISH_PATH=/usr/local/bin/engine
+```
+
+Or run your engine's HTTP service anywhere and point the server at it:
+
+```bash
+ENGINE_URL=http://localhost:8095 npm start
+```
+
+Either way the engine's real name and version flow through to `evidence`, and the response
+cache keys on them, so two engines never share cached results.
+
+Verified with Fairy-Stockfish 14 in place of Stockfish 18: responses came back with
+`"engine": "Fairy-Stockfish"`, `"engine_version": "14"`, and depth 17 at multipv 3, with no
+code change.
+
+One caveat: depth numbers are not comparable across engines. Depth 20 from two different
+engines are two different amounts of work.
+
+## Configuration
+
+| Variable | Default | What it does |
+|---|---|---|
+| `PORT` | `8091` | Port the MCP server listens on |
+| `ENGINE_URL` | `http://localhost:8090` | Where the engine service is |
+| `STOCKFISH_THREADS` | `4` | Engine threads (set in `docker-compose.yml`) |
+| `STOCKFISH_HASH` | `256` | Engine hash table, in MB |
+| `STOCKFISH_MOVETIME` | `2000` | Default search budget, in milliseconds |
+
+Search time is the budget and depth is the result. A longer budget reaches a deeper search;
+the depth that was actually reached is always reported.
+
+## More
+
+- [docs/prd.md](docs/prd.md) for what it does and why
+- [CONTEXT.md](CONTEXT.md) for the vocabulary
+- [docs/decisions.md](docs/decisions.md) and [docs/adr/](docs/adr/) for the decisions and
+  their measurements
+- [docs/references.md](docs/references.md) for the PGN, FEN, SAN and UCI standards
 
 ## License
 

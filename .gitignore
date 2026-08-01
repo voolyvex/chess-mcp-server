@@ -2,7 +2,19 @@ node_modules/
 dist/
 coverage/
 .env
+.env.*
+!.env.example
 *.log
+
+# Editor and OS droppings. Nothing here is authored, and each one is a file a
+# contributor on a different platform would have to notice and not commit.
+.DS_Store
+.idea/
+.vscode/
+
+# Test and build caches. Regenerated on every run, never worth a diff.
+.vitest/
+*.tsbuildinfo
 
 # The chess-context reference copy, deleted 2026-08-01 once the port was done.
 # It was deliberately untracked, so removing it moved nothing in git history —
