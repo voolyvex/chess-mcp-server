@@ -23,6 +23,12 @@ export interface Address {
   readonly side?: SideToMove;
 }
 
+/** A legal move, in both notations a caller might produce. */
+export interface LegalMove {
+  readonly san: string;
+  readonly uci: string;
+}
+
 /** A Position named by an address, and every way of naming it echoed back. */
 export interface ResolvedPosition {
   readonly resolved_fen: string;
@@ -31,6 +37,14 @@ export interface ResolvedPosition {
   /** The true game move number, read off the resolved board rather than counted. */
   readonly move_number: number;
   readonly side_to_move: SideToMove;
+  /**
+   * Every legal move from this Position, in both notations. Ground truth to check a
+   * generated move against *before* asserting it, not after — an LLM's internal board
+   * simulation is unreliable enough that a plausible-looking illegal move is a documented
+   * failure mode, and a candidate search only catches it post-hoc. Empty on a terminal
+   * position (checkmate or stalemate), which is itself the correct answer.
+   */
+  readonly legal_moves: readonly LegalMove[];
 }
 
 /** An address that named no position in the sequence, saying which ones exist. */
@@ -65,6 +79,10 @@ export function resolveAddress(sequence: ParsedSequence, address: Address): Reso
     ply,
     move_number: board.moveNumber(),
     side_to_move: board.turn(),
+    legal_moves: board.moves({ verbose: true }).map((move) => ({
+      san: move.san,
+      uci: `${move.from}${move.to}${move.promotion ?? ''}`,
+    })),
   };
 }
 

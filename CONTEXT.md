@@ -38,9 +38,18 @@ a decision.
 _Avoid_: turn, move index, ply
 
 **Candidate Move**:
-A legal move from a Position that the user is asking about, as distinct from the move
-the engine would choose. Comparing the two is what answers "was my move any good?".
+A legal move a player is weighing in a Position, named by the user and scored by a search
+of its own. Its number is exact for any legal move, however bad — which is what answers
+"was my move any good?".
 _Avoid_: user move, played move, suggested move
+
+**Engine Line**:
+One variation from a ranked multi-variation search: a move, its Evaluation, and the
+principal variation behind it. The engine's own ordering of what is worth considering.
+A Candidate Move is what a player is weighing; an Engine Line is what the engine offers.
+The two are never the same number — an Engine Line's score comes from a shared, ranked
+search, a Candidate Move's from a search of that move alone — so they never share a field.
+_Avoid_: top move, suggested move, multipv line, alternative
 
 ### Engine output
 
