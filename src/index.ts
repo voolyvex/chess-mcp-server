@@ -46,8 +46,14 @@ const server = createServer((req, res) => {
 
         // The client hanging up has to reach the handler, or a streaming response has no
         // way to learn its reader is gone and its keep-alive timer runs forever.
+        //
+        // Scoped to this exchange, deliberately. `res.on('close')` fires when a keep-alive
+        // socket is *reused* as well as when it drops, which aborts whichever request
+        // arrives next on that connection — and a client that pipelines its handshake
+        // would fail intermittently, on a timer nothing in the request itself explains.
         const abort = new AbortController();
-        res.on('close', () => abort.abort());
+        res.once('finish', () => abort.abort());
+        req.once('aborted', () => abort.abort());
 
         const request = new Request(url, {
           method: req.method ?? 'GET',

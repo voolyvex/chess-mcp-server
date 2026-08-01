@@ -105,7 +105,7 @@ export function createChessMcpHandler(engine: () => EngineClient): ReturnType<ty
      * session it never issued.
      */
     fetch: async (request: Request): Promise<Response> => {
-      if (request.method.toUpperCase() !== 'GET') return handler.fetch(request);
+      if (request.method.toUpperCase() !== 'GET') return handler.fetch(widenAccept(request));
 
       // Only a client asking for the event stream gets one. A bare GET from a browser or
       // a health check is not an SSE client, and answering it with a stream that never
@@ -117,6 +117,42 @@ export function createChessMcpHandler(engine: () => EngineClient): ReturnType<ty
       return sseKeepAliveStream(request);
     },
   };
+}
+
+/**
+ * Widens a POST's `Accept` so a client that asks only for JSON is still served.
+ *
+ * The SDK rejects any POST whose `Accept` does not name **both** `application/json` and
+ * `text/event-stream`, with `406` — before dispatch, so it fails `initialize` and the
+ * client never connects at all. The check is stricter than this server needs: under
+ * `responseMode: 'auto'` a plain request/response exchange is answered with a single JSON
+ * body, and the only thing that upgrades it to a stream is the handler emitting a related
+ * message before its result. This one never does — it registers a single tool that
+ * returns once, with no progress or logging notifications.
+ *
+ * So the header is widened rather than the rejection removed: the SDK still decides the
+ * response shape, and it still has both options available. What changes is that a client
+ * asking for less than it might get is served instead of refused. A client that asks for
+ * something incompatible is untouched and still refused.
+ */
+function widenAccept(request: Request): Request {
+  const accept = request.headers.get('accept') ?? '';
+  if (accept.includes('application/json') && accept.includes('text/event-stream')) {
+    return request;
+  }
+
+  // A client that named neither is asking for anything (`*/*`, or nothing at all); one
+  // that named only JSON is asking for the shape this server actually returns. Both are
+  // servable. Anything else — a client demanding some third type — is left to the SDK.
+  const wantsJson = accept === '' || accept.includes('*/*') || accept.includes('application/json');
+  if (!wantsJson) return request;
+
+  const headers = new Headers(request.headers);
+  headers.set('accept', 'application/json, text/event-stream');
+
+  // `duplex` is required by the fetch spec when constructing a Request with a stream
+  // body, and is inert for the buffered bodies this path actually sees.
+  return new Request(request, { headers, duplex: 'half' } as RequestInit);
 }
 
 /**

@@ -30,7 +30,10 @@ beforeAll(async () => {
       void (async () => {
         const body = Buffer.concat(chunks);
         const abort = new AbortController();
-        res.on('close', () => abort.abort());
+        // Scoped to this exchange. `res.on('close')` would also fire when a keep-alive
+        // socket is reused, aborting the *next* request to arrive on it.
+        res.once('finish', () => abort.abort());
+        req.once('aborted', () => abort.abort());
 
         const request = new Request(`http://localhost${req.url ?? '/'}`, {
           method: req.method ?? 'GET',
@@ -151,6 +154,70 @@ describe('GET /mcp opens the server-to-client stream', () => {
 
     expect(response.status).toBe(200);
     expect(await response.text()).toContain('"serverInfo"');
+  });
+
+  it('serves a client that accepts only JSON, instead of refusing it', async () => {
+    // The SDK rejects these with 406 before dispatch, so `initialize` fails and the
+    // client never connects. This server can serve them: it returns a single JSON body
+    // for a plain exchange, which is exactly what such a client asked for.
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'initialize',
+        params: {
+          protocolVersion: '2025-06-18',
+          capabilities: {},
+          clientInfo: { name: 'json-only', version: '1' },
+        },
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain('"serverInfo"');
+  });
+
+  it('serves a client that sends no Accept header at all', async () => {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: '*/*' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list' }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain('evaluate_position');
+  });
+
+  it('lets the tool answer for a JSON-only client, not just the handshake', async () => {
+    // Connecting is not the point; being able to ask a chess question is.
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 3,
+        method: 'tools/call',
+        params: { name: 'evaluate_position', arguments: { moves: '1. e4' } },
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain('legal_moves');
+  });
+
+  it('leaves a client demanding an incompatible type to the SDK', async () => {
+    // Widening exists to serve clients that asked for less than they might get, not to
+    // ignore what a client asked for. One demanding XML is still refused.
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/xml' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 4, method: 'tools/list' }),
+    });
+
+    expect(response.status).toBe(406);
+    await response.text();
   });
 
   it('does not hand a stream to a client that did not ask for one', async () => {
