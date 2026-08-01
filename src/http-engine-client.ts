@@ -46,7 +46,7 @@ export function httpEngineClient(baseUrl: string = DEFAULT_ENGINE_URL): EngineCl
      * up, which is a refusal to answer, not an identity — so it throws.
      */
     async engineIdentity(): Promise<EngineIdentity> {
-      const response = await fetch(`${baseUrl}/id`);
+      const response = await reachable(baseUrl, () => fetch(`${baseUrl}/id`));
       if (!response.ok) {
         const detail = await response.text();
         throw new Error(`engine identity unavailable, ${response.status}: ${detail}`);
@@ -56,15 +56,17 @@ export function httpEngineClient(baseUrl: string = DEFAULT_ENGINE_URL): EngineCl
     },
 
     async analyze(request: AnalyzeRequest): Promise<EngineResult> {
-      const response = await fetch(`${baseUrl}/analyze`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          fen: request.fen,
-          ...(request.movetimeMs === undefined ? {} : { movetimeMs: request.movetimeMs }),
-          ...(request.multiPv === undefined ? {} : { multiPv: request.multiPv }),
+      const response = await reachable(baseUrl, () =>
+        fetch(`${baseUrl}/analyze`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            fen: request.fen,
+            ...(request.movetimeMs === undefined ? {} : { movetimeMs: request.movetimeMs }),
+            ...(request.multiPv === undefined ? {} : { multiPv: request.multiPv }),
+          }),
         }),
-      });
+      );
 
       if (!response.ok) {
         const detail = await response.text();
@@ -83,6 +85,30 @@ export function httpEngineClient(baseUrl: string = DEFAULT_ENGINE_URL): EngineCl
       };
     },
   };
+}
+
+/**
+ * Names the engine that could not be reached.
+ *
+ * A `fetch` that never gets a response rejects with a bare `TypeError: fetch failed`,
+ * naming neither the host it tried nor the reason. That message reaches the caller as the
+ * tool's whole error, and it is the first thing anyone sees who starts the server without
+ * starting the engine — the most likely failure on a fresh clone. Every other error here
+ * says what went wrong and what to do; this one has to as well.
+ *
+ * Only transport failures are wrapped. An engine that answers — including a 503 while it
+ * warms up — is reachable, and its status carries more than this wrapper could add.
+ */
+async function reachable(baseUrl: string, send: () => Promise<Response>): Promise<Response> {
+  try {
+    return await send();
+  } catch (error) {
+    const cause = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `engine unreachable at ${baseUrl} (${cause}). Start it with \`docker compose up -d engine\`, ` +
+        `or set ENGINE_URL if it is running elsewhere.`,
+    );
+  }
 }
 
 /** The rename that keeps "side-to-move relative" visible in the type system. */

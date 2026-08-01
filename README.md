@@ -107,6 +107,25 @@ ENGINE_URL=http://localhost:8095 npm start
 A longer search time budget reaches a deeper search;
 the depth that it reached is reported.
 
+## Troubleshooting
+
+**`engine unreachable at http://localhost:8090`** — the engine container is not running.
+Start it with `docker compose up -d engine`, and check it answers:
+
+```bash
+curl localhost:8090/health    # {"status":"ready", ...}
+```
+
+The first `docker compose up` builds the image and downloads Stockfish, so it takes a
+minute or two. Until `status` reads `ready`, searches will fail.
+
+**The assistant cannot see the tool** — check the server is up (`curl localhost:8091/mcp`
+should answer, not refuse the connection), then restart the assistant. Most clients read
+their MCP config only at startup.
+
+**Port already in use** — set `PORT` for the MCP server, or change the published port in
+`docker-compose.yml` for the engine and point at it with `ENGINE_URL`.
+
 ## More
 
 - [docs/prd.md](docs/prd.md) for what it does and why
