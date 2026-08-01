@@ -281,3 +281,73 @@ describe('a Move Sequence lands on the board it names', () => {
     expect(result.position.ply).toBe(3);
   });
 });
+
+/**
+ * MultiPV against a real engine — invariants only, never a number.
+ *
+ * ADR-0001 measured the thing these tests cannot assert: a ranked search reaches a
+ * shallower depth than a solo one on the same clock, and rank 1 is *not* reproducibly
+ * equal to a MultiPV 1 search of the same position. Both are properties of the search,
+ * not of this code, so what is pinned here is the structure that has to hold regardless:
+ * ranks are ordered, rank 1 agrees with `best`, and every line is a legal move.
+ */
+describe('a ranked search returns ordered Engine Lines', () => {
+  it('ranks lines best-first, with evaluations that never improve down the ranking', async () => {
+    const result = await evaluatePosition(wasmEngine(), {
+      fen: BLACK_DOWN_A_QUEEN_WHITE_TO_MOVE,
+      multipv: 3,
+      movetimeMs: BUDGET_MS,
+    });
+
+    const lines = result.engine_lines ?? [];
+    expect(lines.length).toBeGreaterThan(1);
+    expect(lines.map((each) => each.rank)).toEqual([...lines.keys()].map((index) => index + 1));
+
+    // White to move, so a better line is a higher White-relative number. The engine's own
+    // ordering must agree with the scores it attached, or one of the two is misreported.
+    const scores = lines.map((each) => each.evaluation.evaluation_cp ?? 0);
+    for (let index = 1; index < scores.length; index += 1) {
+      expect(scores[index]).toBeLessThanOrEqual(scores[index - 1] ?? 0);
+    }
+  });
+
+  it('agrees with best on rank 1 — the same line, not merely a similar one', async () => {
+    const result = await evaluatePosition(wasmEngine(), {
+      fen: BLACK_DOWN_A_QUEEN_WHITE_TO_MOVE,
+      multipv: 3,
+      movetimeMs: BUDGET_MS,
+    });
+
+    expect(result.engine_lines?.[0]?.uci).toBe(result.best?.uci);
+    expect(result.engine_lines?.[0]?.pv_uci).toEqual(result.best?.pv_uci);
+  });
+
+  it('offers only legal moves, checkable against the legal_moves it ships', async () => {
+    const result = await evaluatePosition(wasmEngine(), {
+      fen: BLACK_DOWN_A_QUEEN_WHITE_TO_MOVE,
+      multipv: 3,
+      movetimeMs: BUDGET_MS,
+    });
+
+    const legal = new Set(result.position.legal_moves.map((move) => move.uci));
+    for (const eachLine of result.engine_lines ?? []) {
+      expect(legal.has(eachLine.uci), `${eachLine.uci} is not a legal move`).toBe(true);
+    }
+  });
+
+  it('records the multipv it searched at, so two evaluations can be told apart', async () => {
+    const ranked = await evaluatePosition(wasmEngine(), {
+      fen: BLACK_DOWN_A_QUEEN_WHITE_TO_MOVE,
+      multipv: 3,
+      movetimeMs: BUDGET_MS,
+    });
+    const solo = await evaluatePosition(wasmEngine(), {
+      fen: BLACK_DOWN_A_QUEEN_WHITE_TO_MOVE,
+      movetimeMs: BUDGET_MS,
+    });
+
+    expect(ranked.evidence.multipv).toBe(3);
+    expect(solo.evidence.multipv).toBe(1);
+    expect(solo.engine_lines).toBeNull();
+  });
+});

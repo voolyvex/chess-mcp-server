@@ -1,7 +1,7 @@
 import { createMcpHandler, McpServer } from '@modelcontextprotocol/server';
 import { z } from 'zod';
 import type { EngineClient } from './engine-client.js';
-import { evaluatePosition } from './evaluate-position.js';
+import { evaluatePosition, MAX_MULTIPV } from './evaluate-position.js';
 
 /** How the tool is addressed. One tool, named for the question it answers. */
 export const TOOL_NAME = 'evaluate_position';
@@ -56,6 +56,20 @@ const inputSchema = z.object({
     .positive()
     .optional()
     .describe('Wall-clock search budget in milliseconds. Depth is an outcome, not an input.'),
+  multipv: z
+    .number()
+    .int()
+    .min(1)
+    .max(MAX_MULTIPV)
+    .optional()
+    .describe(
+      'How many Engine Lines to rank, 1-5. Above 1 the response carries engine_lines, ' +
+        'ranked best-first. Prefer one multipv call to N candidate calls when asking ' +
+        '"what are the options" — but an Engine Line is scored against its rivals in a ' +
+        'narrowed window, so its number is not a Candidate Move\'s dedicated search and ' +
+        'must never be quoted as one. Costs depth: a ranked search widens instead of ' +
+        'deepening on the same clock.',
+    ),
 });
 
 /**
@@ -79,7 +93,10 @@ export function createChessMcpHandler(engine: () => EngineClient): ReturnType<ty
           description:
             'Search a chess position with an engine and return the evaluation with the ' +
             'evidence that produced it. Scores are White-relative: positive favours ' +
-            'White regardless of whose turn it is. Returns numbers only — no prose.',
+            'White regardless of whose turn it is. Returns numbers only — no prose. ' +
+            'The response always includes legal_moves for the resolved position: check a ' +
+            'move against this list before asserting it is legal, best, or playable — do ' +
+            'not rely on your own board simulation, which is an unreliable substitute.',
           inputSchema,
         },
         async (args) => {
@@ -91,6 +108,7 @@ export function createChessMcpHandler(engine: () => EngineClient): ReturnType<ty
             ...(args.side === undefined ? {} : { side: args.side }),
             ...(args.candidate === undefined ? {} : { candidate: args.candidate }),
             ...(args.movetime_ms === undefined ? {} : { movetimeMs: args.movetime_ms }),
+            ...(args.multipv === undefined ? {} : { multipv: args.multipv }),
           });
 
           return {

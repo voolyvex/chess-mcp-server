@@ -47,6 +47,37 @@ describe('evaluate_position answers a bare FEN', () => {
   });
 });
 
+describe('legal_moves is ground truth for the resolved position', () => {
+  it('lists every legal move from the Start Position, in both notations', async () => {
+    const result = await evaluatePosition(fakeEngine(), { fen: START_FEN });
+
+    // Not asserting the engine's opinion — chess.js's, since legal_moves comes from the
+    // board alone and never touches the engine. 20 is the true count from the opening
+    // array: 16 pawn moves (8 single, 8 double) and 4 knight moves.
+    expect(result.position.legal_moves).toHaveLength(20);
+    expect(result.position.legal_moves).toContainEqual({ san: 'e4', uci: 'e2e4' });
+    expect(result.position.legal_moves).toContainEqual({ san: 'Nf3', uci: 'g1f3' });
+  });
+
+  it('describes the position actually resolved, not the Start Position', async () => {
+    // ply 1 is after 1. e4 — Black to move, so the list must be Black's legal moves, not
+    // White's and not the Start Position's.
+    const result = await evaluatePosition(fakeEngine(), { moves: '1. e4 e5 2. Nf3', ply: 1 });
+
+    expect(result.position.legal_moves.length).toBeGreaterThan(0);
+    expect(result.position.legal_moves).toContainEqual({ san: 'Nc6', uci: 'b8c6' });
+    // A White move must not appear on Black's list.
+    expect(result.position.legal_moves).not.toContainEqual({ san: 'd4', uci: 'd2d4' });
+  });
+
+  it('is empty on a checkmated position — the correct answer, not a missing one', async () => {
+    // Fool's mate, played out to the mated position itself: 1. f3 e5 2. g4 Qh4#.
+    const result = await evaluatePosition(fakeEngine(), { moves: '1. f3 e5 2. g4 Qh4#' });
+
+    expect(result.position.legal_moves).toEqual([]);
+  });
+});
+
 describe('the best move is reported in both notations', () => {
   it('converts the engine PV from UCI into SAN', async () => {
     const result = await evaluatePosition(
@@ -143,6 +174,103 @@ describe('no response field is prose', () => {
     for (const value of allStrings(result)) {
       expect(value, `"${value}" reads as prose`).not.toMatch(/\s\w+\s\w+\s\w+\s/);
     }
+  });
+});
+
+/**
+ * Black to move, from the standard array after `1.e4`. Used where the *side to move* is
+ * the point: a Raw Score is side-to-move relative, so this is the board that makes the
+ * conversion to a White-relative Evaluation observable.
+ */
+const BLACK_TO_MOVE_AFTER_E4 =
+  'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1';
+
+describe('multipv ranks Engine Lines without disturbing best', () => {
+  it('omits engine_lines entirely when multipv was not asked for', async () => {
+    const result = await evaluatePosition(fakeEngine(), { fen: START_FEN });
+
+    // Not an empty array: a solo search produced no ranking, and an array of one would
+    // invite reading it as one.
+    expect(result.engine_lines).toBeNull();
+    expect(result.best).not.toBeNull();
+  });
+
+  it('reports multipv 1 in the evidence when unasked, so a reader always knows', async () => {
+    const result = await evaluatePosition(fakeEngine(), { fen: START_FEN });
+
+    expect(result.evidence.multipv).toBe(1);
+  });
+
+  it('ranks the lines best-first, each with its own evaluation and depth', async () => {
+    const engine = fakeEngine({
+      lines: [
+        line({ multipv_rank: 2, raw_score_cp: 12, depth: 19, pv: ['d2d4', 'd7d5'] }),
+        line({ multipv_rank: 1, raw_score_cp: 35, depth: 20, pv: ['e2e4', 'e7e5'] }),
+      ],
+    });
+
+    const result = await evaluatePosition(engine, { fen: START_FEN, multipv: 2 });
+
+    // Sorted here, not trusted to arrive ordered: rank is what a reader indexes by.
+    expect(result.engine_lines?.map((each) => each.rank)).toEqual([1, 2]);
+    expect(result.engine_lines?.map((each) => each.san)).toEqual(['e4', 'd4']);
+    expect(result.engine_lines?.[1]?.depth).toBe(19);
+    expect(result.evidence.multipv).toBe(2);
+  });
+
+  it('populates best from rank 1 regardless of the order the engine emitted', async () => {
+    const engine = fakeEngine({
+      lines: [
+        line({ multipv_rank: 2, pv: ['d2d4'] }),
+        line({ multipv_rank: 1, pv: ['e2e4'] }),
+      ],
+    });
+
+    const result = await evaluatePosition(engine, { fen: START_FEN, multipv: 2 });
+
+    // `best` is the contract for callers that never read engine_lines at all.
+    expect(result.best?.san).toBe('e4');
+    expect(result.engine_lines?.[0]?.san).toBe('e4');
+  });
+
+  it('ships each line in both notations, so a renderer needs no chess library', async () => {
+    const engine = fakeEngine({ lines: [line({ multipv_rank: 1, pv: ['e2e4', 'e7e5'] })] });
+
+    const result = await evaluatePosition(engine, { fen: START_FEN, multipv: 2 });
+
+    expect(result.engine_lines?.[0]?.uci).toBe('e2e4');
+    expect(result.engine_lines?.[0]?.pv_uci).toEqual(['e2e4', 'e7e5']);
+    expect(result.engine_lines?.[0]?.pv_san).toEqual(['e4', 'e5']);
+  });
+
+  it('drops a ranked slot the engine emitted with no move in it', async () => {
+    const engine = fakeEngine({
+      lines: [line({ multipv_rank: 1, pv: ['e2e4'] }), line({ multipv_rank: 2, pv: [] })],
+    });
+
+    const result = await evaluatePosition(engine, { fen: START_FEN, multipv: 2 });
+
+    expect(result.engine_lines).toHaveLength(1);
+  });
+
+  it('keeps an Engine Line White-relative, like every other Evaluation', async () => {
+    // Raw Scores are side-to-move relative; Black to move with a positive Raw Score is
+    // a position good for *Black*, so the Evaluation must read negative.
+    const engine = fakeEngine({
+      lines: [line({ multipv_rank: 1, raw_score_cp: 900, pv: ['e7e5', 'g1f3'] })],
+    });
+
+    const result = await evaluatePosition(engine, { fen: BLACK_TO_MOVE_AFTER_E4, multipv: 2 });
+
+    expect(result.engine_lines?.[0]?.evaluation.evaluation_cp).toBeLessThan(0);
+  });
+
+  it.each([0, 6, 1.5, -1])('rejects multipv %s rather than clamping it', async (multipv) => {
+    // Clamping would answer a different question than the one asked, silently — the same
+    // defect as an engine that guesses, one layer up.
+    await expect(
+      evaluatePosition(fakeEngine(), { fen: START_FEN, multipv }),
+    ).rejects.toThrow(/multipv/);
   });
 });
 
