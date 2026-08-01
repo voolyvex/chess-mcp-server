@@ -4,10 +4,11 @@ coverage/
 .env
 *.log
 
-# Reference copy of the superseded chess-context prototype, kept only while
-# porting. Deliberately untracked so deleting it leaves no history residue —
+# The chess-context reference copy, deleted 2026-08-01 once the port was done.
+# It was deliberately untracked, so removing it moved nothing in git history —
 # the authoritative copy lives at github.com/voolyvex/chess-context.
-# See docs/decisions.md #12.
+# This entry outlives the directory on purpose: it costs nothing, and it stops a
+# future reference copy from being committed by accident. See decisions.md #12.
 legacy/
 
 # Working notes — issue breakdowns and scratch files that track the build in
