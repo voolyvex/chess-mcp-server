@@ -82,6 +82,108 @@ const inputSchema = z.object({
  * container exists to avoid.
  */
 export function createChessMcpHandler(engine: () => EngineClient): ReturnType<typeof createMcpHandler> {
+  const handler = createMcpHandlerFor(engine);
+
+  return {
+    ...handler,
+    /**
+     * `GET /mcp` opens the server-to-client SSE stream the streamable HTTP transport
+     * describes, in front of the SDK handler.
+     *
+     * The SDK answers GET with `405` by design: under `legacy: 'stateless'` there is no
+     * session for a stream to belong to, so it treats GET as a 2025-era session operation
+     * it does not implement. That is defensible, and clients that only POST — Claude Code
+     * among them — never notice.
+     *
+     * Others open this stream during connection setup and take the 405 as a failed
+     * connection, showing no tools at all. Nothing is lost by answering it: this server
+     * never initiates a message to the client, so the correct stream is simply an open,
+     * empty one. It is held open with comment-line keep-alives, and carries no session id
+     * because there is no session — which is what being stateless means, not a gap in it.
+     *
+     * Everything else still goes to the SDK, including POST and the DELETE that ends a
+     * session it never issued.
+     */
+    fetch: async (request: Request): Promise<Response> => {
+      if (request.method.toUpperCase() !== 'GET') return handler.fetch(request);
+
+      // Only a client asking for the event stream gets one. A bare GET from a browser or
+      // a health check is not an SSE client, and answering it with a stream that never
+      // ends would hang it.
+      if (!(request.headers.get('accept') ?? '').includes('text/event-stream')) {
+        return handler.fetch(request);
+      }
+
+      return sseKeepAliveStream(request);
+    },
+  };
+}
+
+/**
+ * How often a comment line is sent to keep the stream from being reaped.
+ *
+ * An idle connection is closed by intermediaries and by some clients; this server has
+ * nothing to say on the stream, so without traffic every stream would be idle by
+ * definition. A comment line is the SSE no-op — clients ignore it, and it resets the clock.
+ */
+const SSE_KEEPALIVE_MS = 15_000;
+
+/**
+ * An open, empty SSE stream that stays open.
+ *
+ * It carries no events because this server never initiates a message to the client. Its
+ * value is entirely in existing: a client that requires the stream can finish connecting.
+ */
+function sseKeepAliveStream(request: Request): Response {
+  let timer: ReturnType<typeof setInterval> | undefined;
+
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      const encoder = new TextEncoder();
+      // An initial comment flushes headers, so the client sees the stream open now rather
+      // than on the first keep-alive.
+      controller.enqueue(encoder.encode(': open\n\n'));
+
+      timer = setInterval(() => {
+        try {
+          controller.enqueue(encoder.encode(': keep-alive\n\n'));
+        } catch {
+          // The client vanished between the abort signal and this tick. Nothing to
+          // report — stopping the timer is the whole remedy.
+          clearInterval(timer);
+        }
+      }, SSE_KEEPALIVE_MS);
+
+      // The client hanging up is the normal end of this stream, not a failure.
+      request.signal.addEventListener('abort', () => {
+        clearInterval(timer);
+        try {
+          controller.close();
+        } catch {
+          // Already closed by the runtime tearing down the request.
+        }
+      });
+    },
+    cancel() {
+      clearInterval(timer);
+    },
+  });
+
+  return new Response(body, {
+    status: 200,
+    headers: {
+      'content-type': 'text/event-stream',
+      'cache-control': 'no-cache, no-transform',
+      connection: 'keep-alive',
+      // Proxies that buffer would defeat the point of a stream whose only content is
+      // liveness.
+      'x-accel-buffering': 'no',
+    },
+  });
+}
+
+/** The SDK handler, with the tool registered on a fresh server per request. */
+function createMcpHandlerFor(engine: () => EngineClient): ReturnType<typeof createMcpHandler> {
   return createMcpHandler(
     () => {
       const server = new McpServer({ name: 'chess', version: '0.1.0' });
