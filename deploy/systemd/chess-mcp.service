@@ -1,0 +1,46 @@
+[Unit]
+Description=Chess MCP handler (evaluate_position on :8091)
+Documentation=https://github.com/voolyvex/chess-mcp-server
+# The handler is useless without the engine, but it does not crash without
+# one — it reports the engine as unreachable. Requires= would make an engine
+# failure tear the handler down too, which loses that error path, so this is
+# a soft ordering dependency.
+After=chess-engine.service
+Wants=chess-engine.service
+# Do not give up: a machine that has been off for a week should still come
+# back cleanly rather than land in a failed state.
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+WorkingDirectory=%h/projects/chess-mcp-server
+
+Environment=PORT=8091
+Environment=ENGINE_URL=http://localhost:8090
+# nvm's node is not on the default systemd PATH.
+Environment=PATH=%h/.nvm/versions/node/v20.20.2/bin:/usr/local/bin:/usr/bin:/bin
+
+# `npm start` would put an npm process between systemd and the server,
+# muddying signal delivery and exit codes. Invoke tsx directly.
+ExecStart=%h/.nvm/versions/node/v20.20.2/bin/node %h/projects/chess-mcp-server/node_modules/.bin/tsx src/index.ts
+
+Restart=on-failure
+RestartSec=5
+# The server installs no SIGTERM handler, so a clean `systemctl stop` exits
+# 143 (128+SIGTERM). Without this, every ordinary shutdown is recorded as a
+# failure — noise that would hide a real one.
+SuccessExitStatus=143
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=chess-mcp
+
+# The handler is stateless and reads only its own checkout.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=
+
+[Install]
+WantedBy=default.target

@@ -55,7 +55,9 @@ docs/               prd.md · decisions.md · references.md
 docs/adr/           one architecture decision per file, with its measurements
 engine/             Stockfish container: Dockerfile (pinned) + HTTP-to-UCI bridge
 src/                the stateless MCP handler
+deploy/             systemd user units, and what they assume — see deploy/README.md
 .claude/skills/     operator discipline, versioned with the schema it describes
+.agents/skills/     the same skill in Codex's project-local convention — keep in sync
 ```
 
 ## Relationship to `chess-context`
