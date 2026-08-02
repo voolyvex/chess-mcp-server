@@ -5,10 +5,10 @@ import type { EngineClient, EngineResult, EngineLine } from '../../src/engine-cl
  *
  * It is **typed as returning Raw Scores** — the `EngineLine` it hands back carries
  * `raw_score_cp`, side-to-move relative, exactly as UCI reports it. That typing is the
- * point: the prototype's fake returned a number called `cp` that the test then asserted
- * was White-relative, so the fixture encoded the same misunderstanding as the code and
- * the sign bug survived 28 test files. This fake structurally cannot launder that
- * question, because there is no field on it that is already White-relative.
+ * point. A fake that returns a bare `cp` invites the test to assert it is White-relative,
+ * which makes the fixture encode the same misunderstanding as the code and lets a sign
+ * bug pass every test in the suite. This fake structurally cannot launder that question,
+ * because no field on it is already White-relative.
  *
  * Use it for input forms, schema shape, and error rules. Never for what a score *means* —
  * that is tier 2's job, against a real engine.

@@ -17,7 +17,8 @@ Stockfish 18, depth 14, same board with only the turn changed:
 | White down a queen, White to move | `-638` |
 | White down a queen, Black to move | `+671` |
 
-The prototype this project replaces reported **"White is winning"** on the second row.
+Read the second row as an Evaluation and you report "White is winning" while White is down
+a queen.
 
 - **Raw Score** — what the engine said, side-to-move relative.
 - **Evaluation** — White-relative: positive favours White regardless of whose turn it is.
@@ -42,8 +43,8 @@ the depth *reached*.
 
 ## Cache key
 
-`(engine_id, fen, multipv)`. Engine identity is part of the key — the prototype omitted it
-and served one engine's evaluations as another's after a health-check failover.
+`(engine_id, fen, multipv)`. Engine identity is part of the key: omit it and a health-check
+failover serves one engine's evaluations as another's.
 
 ## Candidate Moves
 

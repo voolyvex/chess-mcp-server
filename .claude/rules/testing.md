@@ -8,10 +8,10 @@ paths:
 
 ## Never mock the engine in a test about what the engine means
 
-The prototype had **28 test files and mocked the engine in all of them**. Its sign bug
-survived every one, because the fixture (`makeLines(cp = 30)`) was fed in and then asserted
-to be White-relative — the test encoded the same misunderstanding as the code. Mocked
-coverage is structurally incapable of catching a bug about engine semantics.
+A mock that returns `makeLines(cp = 30)` and is then asserted to be White-relative encodes
+the same misunderstanding as the code it tests. It will pass across any number of test
+files while the sign is inverted in all of them. Mocked coverage is structurally incapable
+of catching a bug about engine semantics — only a real search can.
 
 ## Two tiers
 
