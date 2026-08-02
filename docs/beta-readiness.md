@@ -109,7 +109,9 @@ Rejected: unauthenticated quick tunnel (D2 — a live handle on the CPU while up
 home desktop (uptime, home IP, and the box becomes committed); Fly/Railway/Render
 (shared cores degrade search depth, and depth is the number this project promises is real).
 
-**Chosen: paid ARM VPS** (Hetzner CAX11 — 2 dedicated Ampere cores, 4 GB, ~€6/mo).
+**Chosen: paid ARM VPS** (Hetzner CAX11 — 2 dedicated Ampere cores, 4 GB, ~€6/mo). Set a
+billing alert at a near-zero threshold (~$0.01) on whatever account holds it: on a fixed-price
+box anything above zero is a surprise, and the alert is what makes it a cheap one.
 
 *Revised 2026-08-02.* This was originally Oracle free ARM, on the strength of 4 Ampere cores
 and 24 GB against ~3 vCPU on a paid x86 box. Two facts killed that: Oracle **halved** the
