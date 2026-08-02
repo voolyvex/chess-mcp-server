@@ -1,0 +1,72 @@
+{
+  "$comment": [
+    "The benchmark fixture: 9 positions, 3 per phase, committed so the x86/ARM comparison",
+    "is reproducible rather than another ad hoc run (docs/beta-readiness.md §6).",
+    "",
+    "Depth reached at a fixed budget varies enormously by phase — depth 26 in a middlegame",
+    "against 55 in an endgame at the same 5s budget (.claude/rules/engine-contract.md) — so",
+    "results are reported per phase and never pooled. That is also why the phase label is",
+    "part of the committed data and not inferred at run time from piece count: a position's",
+    "phase is a claim this fixture makes, and it should be reviewable in the diff.",
+    "",
+    "Positions are chosen to be quiet and non-terminal. A position with a forced mate in",
+    "view resolves early and stops iterating, which measures the mate distance rather than",
+    "the host's search speed."
+  ],
+  "positions": [
+    {
+      "id": "opening-1",
+      "phase": "opening",
+      "name": "Ruy Lopez, Morphy Defence",
+      "fen": "r1bqkbnr/1ppp1ppp/p1n5/4p3/B3P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4"
+    },
+    {
+      "id": "opening-2",
+      "phase": "opening",
+      "name": "Queen's Gambit Declined",
+      "fen": "rnbqkb1r/ppp2ppp/4pn2/3p4/2PP4/2N2N2/PP2PPPP/R1BQKB1R b KQkq - 0 4"
+    },
+    {
+      "id": "opening-3",
+      "phase": "opening",
+      "name": "Sicilian Najdorf",
+      "fen": "rnbqkb1r/1p2pppp/p2p1n2/8/3NP3/2N5/PPP2PPP/R1BQKB1R w KQkq - 0 6"
+    },
+    {
+      "id": "middlegame-1",
+      "phase": "middlegame",
+      "name": "Closed centre, opposite-side pawn storms",
+      "fen": "r2q1rk1/1b1nbppp/p2ppn2/1p6/3NPP2/1BN1B3/PPPQ2PP/2KR3R w - - 0 13"
+    },
+    {
+      "id": "middlegame-2",
+      "phase": "middlegame",
+      "name": "Isolated queen's pawn, pieces on",
+      "fen": "r1bq1rk1/pp2bppp/2n1pn2/8/2BP4/2N1PN2/PP3PPP/R1BQ1RK1 b - - 0 9"
+    },
+    {
+      "id": "middlegame-3",
+      "phase": "middlegame",
+      "name": "Sicilian Dragon, castled opposite",
+      "fen": "r2qr1k1/1b1nbppp/pp1ppn2/8/2PNP3/1PN1BP2/P2QB1PP/R4RK1 w - - 0 14"
+    },
+    {
+      "id": "endgame-1",
+      "phase": "endgame",
+      "name": "Rook and pawns, four vs three",
+      "fen": "8/5pk1/6p1/7p/1R6/5PKP/6P1/3r4 w - - 0 40"
+    },
+    {
+      "id": "endgame-2",
+      "phase": "endgame",
+      "name": "Minor piece endgame, bishop vs knight",
+      "fen": "8/4bppk/7p/8/8/5NPP/5P1K/8 w - - 0 38"
+    },
+    {
+      "id": "endgame-3",
+      "phase": "endgame",
+      "name": "King and pawn endgame, distant majority",
+      "fen": "8/p5kp/1p4p1/8/8/1P4P1/P5KP/8 w - - 0 35"
+    }
+  ]
+}
