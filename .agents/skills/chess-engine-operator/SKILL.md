@@ -1,6 +1,6 @@
 ---
 name: chess-engine-operator
-description: Operate the chess `evaluate_position` MCP tool rigorously. Use whenever analysing a chess position, game, or move with the chess MCP server.
+description: Operate the chess `evaluate_position` tool rigorously — never name a move that is not in legal_moves, never characterise a move that was not scored, read the depth before trusting a number, and keep Engine Lines distinct from Candidate Moves. Use whenever analysing a chess position, game, or move with the chess MCP server.
 ---
 
 # Operating the chess engine

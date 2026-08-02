@@ -18,11 +18,9 @@ Lines, addressed by ply or by move number, with every ambiguous input erroring, 
 questions served from an engine-keyed LRU cache. Operator discipline ships as a repo skill,
 `.claude/skills/chess-engine-operator/` (ADR-0003), versioned with the schema it describes.
 
-**v1 is complete** (tickets 03–10). Latency is measured and recorded in `docs/prd.md` §8,
-and the prototype in `legacy/` has been deleted — the authoritative copy of it remains at
-`github.com/voolyvex/chess-context`. Next work is the ecosystem components ADR-0004 defers:
-a rendering surface and a position database, each its own repo, designed after this one
-shipped.
+**v1 is complete** (tickets 03–10). Latency is measured and recorded in `docs/prd.md` §8.
+Next work is the ecosystem components ADR-0004 defers: a rendering surface and a position
+database, each its own repo, designed after this one shipped.
 
 ## Commands
 
@@ -60,13 +58,8 @@ deploy/             systemd user units, and what they assume — see deploy/READ
 .agents/skills/     the same skill in Codex's project-local convention — keep in sync
 ```
 
-## Relationship to `chess-context`
+## Bugs worth not repeating
 
-`github.com/voolyvex/chess-context` is a **fork of `rutvij26/chess-context`** and is the
-prototype this replaces — 13 stdio tools, nothing consuming them. Its conventions, issue
-numbers, and Windows paths are inherited from upstream, not authoritative here.
-
-The port is done and the local `legacy/` reference copy is deleted; that repo is now the
-only copy and is **reference, not a dependency**. Nothing here should grow a use for it.
-What it got wrong is recorded where it is useful — the sign bug and the identity-less cache
-key in `docs/decisions.md`, the mocking failure in `.claude/rules/testing.md`.
+Two defects shaped the design and are recorded where they are useful: the sign bug and the
+identity-less cache key in `docs/decisions.md`, the mocking failure in
+`.claude/rules/testing.md`.

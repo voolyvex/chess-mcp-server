@@ -75,5 +75,4 @@ invisible. That is a known gap with a known owner, not an argument for widening 
 server.
 
 Building the ecosystem before this component is finished would repeat the prototype's
-failure precisely — `chess-context` shipped 13 tools with nothing consuming them. Server
-first.
+failure precisely — it shipped 13 tools with nothing consuming them. Server first.

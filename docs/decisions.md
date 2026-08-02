@@ -31,7 +31,7 @@ glossary), [`docs/references.md`](./docs/references.md) (PGN/FEN/UCI standards).
 | 9 | Engine binary | Official prebuilt Stockfish 18, pinned by version and checksum, **`bmi2` build**. Replaces `apt-get install stockfish`. See "Instruction-set bench" below. |
 | 10 | Cache | Handler-side LRU keyed on **`(engine_id, fen, multipv)`**, storing the deepest result and serving any request whose requested depth ≤ cached depth. |
 | 11 | Relationship to v0.7 | **Replacement.** The 13-tool stdio server was the prototype; port only what proves worth porting. |
-| 12 | Repo layout | **New git repo** (`chess-mcp-server`) — fresh `git init` at `/home/ghost/projects/chess-mcp-server`, **not a fork**, **public**, GitHub remote created immediately (`gh repo create voolyvex/chess-mcp-server`) so CI runs from the first commit. Separate from `chess-context`. Legacy code copied into a `legacy/` folder for reference during the port, **untracked (`.gitignore`)** so deletion leaves no history residue — the authoritative copy stays at `github.com/voolyvex/chess-context`, which is level with origin. `engine-server/` is **product, not legacy**: it lands as `engine/` on day one, with an engine-only `docker-compose.yml` (no postgres). `chess-context` is left untouched on disk and on GitHub; `legacy/` is deleted once the port is done. |
+| 12 | Repo layout | **New git repo** (`chess-mcp-server`) — fresh `git init` at `/home/ghost/projects/chess-mcp-server`, **not a fork**, **public**, GitHub remote created immediately (`gh repo create voolyvex/chess-mcp-server`) so CI runs from the first commit. Prototype code was copied into a `legacy/` folder for reference during the port, **untracked (`.gitignore`)** so deletion left no history residue. `engine-server/` is **product, not legacy**: it lands as `engine/` on day one, with an engine-only `docker-compose.yml` (no postgres). `legacy/` is deleted now the port is done. |
 | 13 | Tool surface | **One tool, `evaluate_position`.** All four input forms (#2), optional ply/move-number addressing (#4), optional Candidate Move (#3) are arguments to it, not separate tools. Full-game scan **deferred to v2** — 40 moves × 5s cap = ~80s in one call, and the 2026-07-28 spec removed stream resumability, so it needs the tasks extension or a minted handle. Build it as a loop over a working single-position tool once the cache (#10) is measured. |
 | 14 | Sign convention | **White-relative `evaluation_cp`, with `raw_score_cp` and `side_to_move` carried alongside** so the conversion is auditable rather than trusted. Matches `CONTEXT.md`'s locked split between *Evaluation* and *Raw Score*. Enforced by a real-engine test (see #15). |
 | 14b | WDL | `UCI_ShowWDL` **defaults to `false`** — the wrapper must set it explicitly or the field silently never appears. Verified output format: `info depth 16 ... score mate 1 wdl 1000 0 0 ... pv f3f7` — three integers per mille (win/draw/loss). **WDL is side-to-move relative too**, so normalizing to White-relative means *swapping win and loss* when Black is to move, not merely negating the centipawns. Second landing site for the same bug; needs its own invariant test (Black-to-move winning → White-relative WDL is loss-heavy). |
@@ -57,14 +57,10 @@ multi-second search.
 
 A → #12 · B → #13 · C → #14, #15 · D → #9 · E → below (leave it) · F → #16, #17 · G → #18, #19
 
-**E. The sign bug — RESOLVED: leave it, move on.** Not filed upstream, no PR.
-`voolyvex/chess-context` is a **fork** of
-`rutvij26/chess-context` (forked 2026-04-14, confirmed via `gh repo view --json isFork`).
-So the affected code is *upstream's*, and filing the bug means opening an issue on someone
-else's project, not on your own tracker — a courtesy-to-upstream call, independent of
-everything being built. This also explains as *inherited* what had been read as stale:
-`CLAUDE.md`'s "assign @rutvij26 as reviewer", the `C:/Users/rut26/...` Desktop config path,
-and GitHub issues #1–#30.
+**E. The sign bug — RESOLVED: leave it, move on.** The defect lived in the prototype, not
+in this codebase, so there was nothing here to fix. What it taught is kept where it earns
+its place: the sign is White-relative by construction, `raw_score_cp` ships alongside the
+converted number so the conversion is auditable, and a test asserts the two agree.
 
 ---
 
@@ -171,13 +167,8 @@ evidence that depth targets cannot give predictable latency.
 - Docker **is** available (29.2.1); no containers currently running.
 - `claude mcp add --transport http <name> <url>` is supported → localhost HTTP MCP works
   with Claude Code today, no hosting or auth.
-- `mcp-chess` is **not published to npm** (404) and `release.yml` has **no publish step** —
-  it only cuts GitHub Releases. No package consumers.
-- The stdio server is **registered with no MCP client** — absent from `claude mcp list` and
-  from Claude Desktop's `claude_desktop_config.json` (zero "chess" mentions). The config
-  block in `CLAUDE.md` points at `C:/Users/rut26/...`; this machine's Windows user is
-  `Admin`, so that documentation is stale.
-- CI is path-coupled: `working-directory: mcp-server` in both `ci.yml` and `release.yml`.
+- The prototype had **no consumers** — unpublished to npm, registered with no MCP client.
+  Nothing depended on it, which is why replacing it outright cost nothing (D#11).
 
 ### chess.js 1.4.0 parsing — probed directly
 

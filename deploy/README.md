@@ -52,11 +52,23 @@ The operator discipline ships in two places, same content, different conventions
 | Scope | Claude Code | Codex |
 |---|---|---|
 | Project | `.claude/skills/<name>/SKILL.md` | `.agents/skills/<name>/SKILL.md` |
-| Personal | `~/.claude/skills/<name>/SKILL.md` | `~/.codex/skills/<name>/SKILL.md` |
+| Personal | `~/.claude/skills/<name>/SKILL.md` | `~/.agents/skills/<name>/SKILL.md` |
 
-`.agents/skills/` is the portable project-local convention; some Codex repos use
-`.codex/skills/` instead. Codex may need a restart or a new task before it discovers a
-newly added skill.
+Codex resolves skills in this order: `$CWD/.agents/skills`, then every parent directory up
+to `$REPO_ROOT/.agents/skills`, then `$HOME/.agents/skills`, then `/etc/codex/skills`, then
+its own bundled skills. `~/.codex/skills` appears in some third-party write-ups and is
+supported as a legacy path, but it is not in the official documentation — prefer
+`~/.agents/skills`.
+
+Both agents discover skills the same way, and it matters for how these files are written.
+Each reads *only* the `name`, `description`, and path up front, then loads the full
+SKILL.md if it decides the skill applies. Codex calls this implicit invocation and its
+documentation is explicit that matching depends on the `description` field. **So the
+description carries the routing burden in both files** — a vague one means the skill is
+never loaded, and nothing in the body can compensate.
+
+Codex has no hot reload for skills: an edit is not picked up by the session that is already
+running. Start a new session after changing either file (openai/codex#12227, #16653).
 
 **Keep the two SKILL.md files in sync.** They are versioned with the schema they describe —
 a response-shape change invalidates both.

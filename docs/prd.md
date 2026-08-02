@@ -1,7 +1,6 @@
 # PRD — `chess-mcp-server`
 
 **Status:** approved to build · **Version:** 1.0 · **Date:** 2026-07-31
-**Supersedes:** `chess-context` v0.7 (13-tool stdio server, prototype)
 **Evidence and rationale:** [`STATELESS-PLAN.md`](./STATELESS-PLAN.md) — every claim below traces to a measurement recorded there.
 
 ---
@@ -180,9 +179,9 @@ dependencies float on every run is a pin with a hole in it.
    position the user did not ask about.
 6. `legacy/` is deleted, and nothing in the product references it.
    **Done 2026-08-01.** The directory was untracked from the start (D#12), so deleting it
-   left no history residue — `git status` did not move. The authoritative copy remains at
-   `github.com/voolyvex/chess-context`. The `.gitignore` entry is kept deliberately: it
-   costs nothing and stops a future reference copy from being committed by accident.
+   left no history residue — `git status` did not move. The `.gitignore` entry is kept
+   deliberately: it costs nothing and stops a future reference copy from being committed
+   by accident.
 
 ## 9. Risks
 
