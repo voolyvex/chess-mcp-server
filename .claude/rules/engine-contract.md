@@ -1,7 +1,6 @@
 ---
 paths:
-  - "src/engine/**"
-  - "src/tools/**"
+  - "src/**"
   - "engine/**"
 ---
 

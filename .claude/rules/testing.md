@@ -33,7 +33,3 @@ typed as such, so it cannot launder the sign question.
 The engine-agnostic invariants run **in CI against the WASM package** — measured at 1.29s
 for three genuine depth-12 searches, no Docker required. Container-path tests (budget
 exhaustion, cache identity) run **locally**, skipped when the engine is unreachable.
-
-Adding the container to CI later is ~3 lines and a ~15s warm-cache cost. Note this is why
-the engine is pinned to `bmi2`: GitHub's runner pool mixes Intel Ice Lake with AMD EPYC
-Zen 3, so an AVX-512 pin would make that SIGILL on a coin flip.
