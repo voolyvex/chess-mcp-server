@@ -141,7 +141,7 @@ You do not need to read it, and neither does your assistant until a chess questi
 
 ## Building on it
 
-Only if you are changing the server, rather than using it:
+For if you are changing the server, rather than using it:
 
 - [docs/prd.md](docs/prd.md) for what it does and why
 - [CONTEXT.md](CONTEXT.md) for the vocabulary
