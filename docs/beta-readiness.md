@@ -149,10 +149,16 @@ measurements belong to the x86 one.
 
 ## 6. Verification
 
-### What §8 does not contain
+### What §8 did not contain
 
-**No benchmark harness has ever existed.** Nothing named bench/perf/measure/latency appears
-anywhere in git history, including deleted files. `scripts/` holds only
+> **Resolved 2026-08-02.** The harness is `bench/depth-at-budget.ts` with its fixture at
+> `bench/fixture.json`, and the x86 baseline is recorded as `docs/prd.md` §8 criterion 7:
+> **opening 24, middlegame 22, endgame 55**, overhead 4ms median / 12ms max. The rest of
+> this section is kept as written — it is the reasoning the harness was built from, and the
+> ARM half of the comparison is still outstanding.
+
+**No benchmark harness had ever existed.** Nothing named bench/perf/measure/latency appeared
+anywhere in git history, including deleted files. `scripts/` held only
 `normalize_trailers.py`. The §8 numbers were produced ad hoc on 2026-08-01, method
 uncommitted.
 
@@ -163,7 +169,7 @@ hardware. Those figures will be near-identical on ARM — ~2050 ms and ~4030 ms 
 depth is the outcome. §8 measured the budget.
 
 **Depth reached at 2000 ms was never recorded.** That is the number this comparison needs,
-and it does not exist for x86 either.
+and it did not exist for x86 either. It does now — see the note above.
 
 ### The harness
 
@@ -227,15 +233,16 @@ schema it describes, and must not drift from the other two.
 | # | Step | Depends on | Blocked? |
 |---|---|---|---|
 | 1 | Clamp `movetimeMs`; bearer token auth | — | No |
-| 2 | Benchmark harness + 9-position fixture | — | No |
-| 3 | Run on x86 here — establishes the missing baseline | 2 | No |
+| 2 | ~~Benchmark harness + 9-position fixture~~ **Done 2026-08-02** — `bench/` | — | No |
+| 3 | ~~Run on x86 here — establishes the missing baseline~~ **Done 2026-08-02** — `docs/prd.md` §8.7 | 2 | No |
 | 4 | Operator rules into the tool description | — | No |
 | 5 | ARM-repin the Dockerfile (asset, checksum, `SF_BUILD`) | — | Writable, **not verifiable** here |
 | 6 | Provision Oracle; deploy; run the harness | 1, 2, 5 | **Yes — needs the instance** |
 | 7 | Compare per-phase depth; decide Oracle vs paid x86 | 3, 6 | Yes |
 | 8 | Docs: §8 gains a depth baseline and an ARM section as a distinct engine identity; README gains remote deployment + Grok connector setup | 7 | Yes |
 
-**Steps 1–4 are unblocked.** Step 5 can be written but not verified without ARM hardware.
+**Steps 1–4 are unblocked; 2 and 3 are done.** Step 5 can be written but not verified without
+ARM hardware.
 Steps 6–8 need the ARM instance, which cannot be provisioned from here — a paid box removes
 the capacity wait (§5), so this is a purchase, not a queue. **If ARM measures badly in §6,
 D4 reverts to x86 and steps 5–7 largely evaporate** — the rest of the spec stands unchanged.
