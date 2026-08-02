@@ -14,7 +14,7 @@ import { fakeEngine, line } from './helpers/fake-engine.js';
 /** The standard array — the Start Position when no FEN is supplied. */
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
-/** White down a queen, Black to move. The board the prototype got wrong. */
+/** White down a queen, Black to move — the sign conversion's worst case. */
 const BLACK_TO_MOVE = 'rnb1kbnr/pppp1ppp/8/4p3/6q1/5P2/PPPPP1PP/RNBQKBNR w KQkq - 0 3';
 
 describe('evaluate_position answers a bare FEN', () => {

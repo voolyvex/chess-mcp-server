@@ -3,9 +3,9 @@ import { MissingWdlError, toEvaluation } from '../src/evaluation.js';
 import type { RawScore } from '../src/raw-score.js';
 
 /**
- * The conversion boundary, tested directly. This is the defect the server exists to
- * close: the prototype reported "White is winning" on a position where White was down
- * a queen, because it shipped the Raw Score as though it were an Evaluation.
+ * The conversion boundary, tested directly. Shipping a Raw Score as though it were an
+ * Evaluation reports "White is winning" on a position where White is down a queen —
+ * the failure this server exists to make impossible.
  *
  * The expected values below are the measurements recorded in
  * `.claude/rules/engine-contract.md` — Stockfish 18, depth 14, one board with only the
@@ -34,8 +34,8 @@ describe('Raw Score becomes an Evaluation', () => {
   });
 
   it('negates when Black is to move, so White down a queen reads as losing for White', () => {
-    // The prototype's bug in one assertion: it shipped +671 here and called it "White
-    // is winning" on a board where White is down a queen.
+    // The whole bug in one assertion: pass +671 through unconverted and you have called
+    // a board where White is down a queen "White is winning".
     const evaluation = toEvaluation(blackToMove, 'b');
     expect(evaluation.evaluation_cp).toBe(-671);
   });

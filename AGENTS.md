@@ -1,4 +1,4 @@
-# CLAUDE.md
+# AGENTS.md
 
 ## What this is
 
@@ -8,24 +8,12 @@ be traceable to a search that actually happened.** The assistant writes the pros
 server ships numbers and their provenance, and never narrates.
 
 **To use the tool, you need none of this file.** Analysing a position is governed by the
-`chess-engine-operator` skill, which loads on its own when a chess question arrives. The
-rest of this file is for changing the server, not operating it.
+`chess-engine-operator` skill in `.agents/skills/`. Read that, not this. The rest of this
+file is for changing the server, not operating it.
 
 When you are changing it: domain language in `CONTEXT.md` (read before naming anything),
 requirements in `docs/prd.md`, choices and their measurements in `docs/decisions.md`,
 notation and protocol standards in `docs/references.md`.
-
-## Status
-
-`evaluate_position` answers a bare FEN or a Move Sequence with an Evaluation, its Evidence,
-the Position's legal moves, and optionally a scored Candidate Move or a ranking of Engine
-Lines, addressed by ply or by move number, with every ambiguous input erroring, and repeated
-questions served from an engine-keyed LRU cache. Operator discipline ships as a repo skill
-(ADR-0003), versioned with the schema it describes.
-
-**v1 is complete** (tickets 03–10). Latency is measured and recorded in `docs/prd.md` §8.
-Next work is the ecosystem components ADR-0004 defers: a rendering surface and a position
-database, each its own repo, designed after this one shipped.
 
 ## Commands
 
@@ -36,8 +24,13 @@ npm test
 npm start                     # MCP handler on :8091
 ```
 
-Engine on **:8090**, MCP handler on **:8091**. Connect with:
-`claude mcp add --transport http chess http://localhost:8091/mcp`
+Engine on **:8090**, MCP handler on **:8091**. Connect Codex by adding to
+`~/.codex/config.toml`:
+
+```toml
+[mcp_servers.chess]
+url = "http://localhost:8091/mcp"
+```
 
 ## Non-negotiables
 
@@ -59,8 +52,8 @@ docs/adr/           one architecture decision per file, with its measurements
 engine/             Stockfish container: Dockerfile (pinned) + HTTP-to-UCI bridge
 src/                the stateless MCP handler
 deploy/             systemd user units, and what they assume — see deploy/README.md
-.claude/skills/     operator discipline, versioned with the schema it describes
-.agents/skills/     the same discipline for Codex — condensed, but the four rules and
+.agents/skills/     operator discipline, in Codex's project-local convention
+.claude/skills/     the same discipline for Claude — longer, but the four rules and
                     their measured cases must not diverge in substance
 ```
 

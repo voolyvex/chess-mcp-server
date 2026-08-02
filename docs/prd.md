@@ -1,8 +1,7 @@
 # PRD — `chess-mcp-server`
 
 **Status:** approved to build · **Version:** 1.0 · **Date:** 2026-07-31
-**Supersedes:** `chess-context` v0.7 (13-tool stdio server, prototype)
-**Evidence and rationale:** [`STATELESS-PLAN.md`](./STATELESS-PLAN.md) — every claim below traces to a measurement recorded there.
+**Evidence and rationale:** [`decisions.md`](./decisions.md) — every claim below traces to a measurement recorded there.
 
 ---
 
@@ -13,11 +12,11 @@ result, or with a fluent guess. The two are indistinguishable in the output, and
 is often wrong in ways that read as confident. There is no way for the reader to tell which
 one they got.
 
-The existing prototype demonstrates the failure concretely. It reports **"White is winning"
-on positions where White is down a queen**, because Stockfish returns scores relative to
-the side to move and nothing in the codebase converts them. The bug survived 28 test files
-because those tests mock the engine, and the mock encodes the same misunderstanding as the
-code.
+Wiring an engine up is not sufficient, because the engine's output is easy to misreport.
+Stockfish scores a position **relative to the side to move**, so a server that passes the
+number through unconverted announces "White is winning" on positions where White is down a
+queen. Mocked tests do not catch it: the fixture encodes the same misunderstanding as the
+code. Evidence has to be structural, not incidental.
 
 ## 2. Goal
 
@@ -41,9 +40,9 @@ Single-machine, localhost. No hosting, TLS, OAuth, or multi-tenancy in scope.
   the assistant's job, and it is the visible difference from every other chess MCP server.
 - **Whole-game analysis.** Deferred to v2 — 40 moves against a wall-clock budget needs the
   tasks extension, and it is a loop over a working v1 rather than a different design.
-- **Porting the prototype.** No player statistics, opening theory, puzzle generation, style
-  fingerprinting, mistake patterns, or the `intelligence/` layer. None of it is a
-  dependency of the goal.
+- **Chess knowledge this server does not search for.** No player statistics, opening theory,
+  puzzle generation, style fingerprinting, or mistake patterns. This server searches;
+  other tools know things (ADR-0004).
 - **Persistence.** No database. State that must cross calls travels as server-minted
   handles in tool arguments, per the 2026-07-28 spec.
 
@@ -106,8 +105,8 @@ reported separately, because it comes from a different search.
 cannot give predictable latency: at a 5s budget a middlegame reaches depth 26 while an
 endgame reaches 55.
 
-**R6 — Cache keyed on `(engine_id, fen, multipv)`.** Engine identity is part of the key —
-the prototype omitted it and served one engine's evaluations as another's. Store the
+**R6 — Cache keyed on `(engine_id, fen, multipv)`.** Engine identity is part of the key:
+omit it and a health-check failover serves one engine's evaluations as another's. Store the
 deepest result; serve any request whose budget it already satisfies.
 
 ## 6. Technical shape
@@ -178,11 +177,6 @@ dependencies float on every run is a pin with a hole in it.
    given, by design.
 5. Ambiguous input returns an error naming the ambiguity — never an evaluation of a
    position the user did not ask about.
-6. `legacy/` is deleted, and nothing in the product references it.
-   **Done 2026-08-01.** The directory was untracked from the start (D#12), so deleting it
-   left no history residue — `git status` did not move. The authoritative copy remains at
-   `github.com/voolyvex/chess-context`. The `.gitignore` entry is kept deliberately: it
-   costs nothing and stops a future reference copy from being committed by accident.
 
 ## 9. Risks
 
