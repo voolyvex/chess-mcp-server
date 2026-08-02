@@ -51,7 +51,7 @@ tester's reply contradicts this, revisit §1 before building.
 | 1 | Target surface | `grok.com`, individual paid plan, mobile-first tester |
 | 2 | Unauthenticated quick tunnel | **Ruled out** |
 | 3 | Security posture | Bearer token + `movetimeMs` clamp — prerequisite, not optional |
-| 4 | Hosting | Oracle free ARM; paid x86 VPS as fallback |
+| 4 | Hosting | ~~Oracle free ARM; paid x86 VPS as fallback~~ — **superseded 2026-08-02, see §5**: free ARM was halved to 2 OCPU / 12 GB and this workload meets every idle-reclamation criterion. Paid ARM (Hetzner CAX11, ~€6/mo) is the recommendation. |
 | 5 | Verification | Depth at fixed movetime, ARM vs x86 |
 | 6 | Benchmark fixture | 9 positions, 3 per phase, reported per-phase |
 | 7 | Baseline | Establish x86 depth locally **first** — it was never recorded |
@@ -109,16 +109,50 @@ Rejected: unauthenticated quick tunnel (D2 — a live handle on the CPU while up
 home desktop (uptime, home IP, and the box becomes committed); Fly/Railway/Render
 (shared cores degrade search depth, and depth is the number this project promises is real).
 
-**Chosen: Oracle free ARM** — up to 4 Ampere cores, 24 GB RAM, against roughly 3 vCPU and
-4 GB on a €8 Hetzner CPX21. Plausibly *better* for Stockfish, and free.
+> **D4 is superseded. Verified against Oracle's documentation on 2026-08-02.**
+>
+> This section originally chose Oracle free ARM on the strength of "up to 4 Ampere cores,
+> 24 GB RAM … plausibly *better* for Stockfish, and free." **That allowance was halved on
+> 2026-06-15**, with no announcement: Always Free A1 is now **2 OCPU / 12 GB** (1,500 OCPU
+> hours and 9,000 GB-hours per month), down from 4 / 24. Free-tier instances exceeding the
+> new limit are shut down until manually resized.
+>
+> The comparison that justified the choice therefore inverts. Two shared Ampere cores are
+> **fewer** than the ~3 vCPU on the paid Hetzner box, not more — and a **CAX11 (2 dedicated
+> Ampere cores, 4 GB, €5.99/mo)** is the same architecture at a known price with no
+> reclamation clause. The remaining argument for Oracle is the 12 GB of RAM, which this
+> workload does not need: the engine container runs `Hash=256`.
+>
+> **Reclamation is the sharper problem, and it lands squarely on this workload.** Oracle
+> deems an instance idle when, over a 7-day window, *all three* hold: 95th-percentile CPU
+> below 20%, network below 20%, and — **for A1 shapes specifically** — memory below 20%.
+> A near-idle chess server sitting at `Hash=256` on a 12 GB box is under 3% memory by
+> construction, and a beta tester asking a handful of questions a day will not carry CPU
+> or network past 20% either. This design meets all three criteria, so reclamation is the
+> expected outcome rather than a tail risk.
+>
+> **Recommendation: take the paid ARM box.** It keeps everything the ARM port buys, removes
+> the capacity wait and the reclamation clause together, and costs about €6/mo. Free ARM
+> remains viable for a throwaway measurement run, where reclamation over 7 days is
+> irrelevant — which is all §6 actually needs.
+
+**Originally chosen: Oracle free ARM** — up to 4 Ampere cores, 24 GB RAM, against roughly
+3 vCPU and 4 GB on a €8 Hetzner CPX21. Plausibly *better* for Stockfish, and free. *(Both
+halves of this comparison are now wrong: see the correction above.)*
 
 Accepted risks, explicitly:
 
 - **Reclamation.** Oracle reclaims idle free-tier instances, and this workload is near-idle
   by design — bursty CPU with long quiet gaps. For a service others may depend on
-  indefinitely, this is the real risk, not the ARM port.
-- **Capacity.** Free ARM is often unavailable in popular regions for days.
-- **Fallback is a paid x86 VPS** (Hetzner-class, €5–8/mo) if either bites.
+  indefinitely, this is the real risk, not the ARM port. **Confirmed 2026-08-02:** the
+  criteria are 95th-percentile CPU, network, and (on A1 shapes) memory all under 20% across
+  7 days. This design meets all three, so it is the expected outcome, not a tail risk.
+- **Capacity.** Free ARM is often unavailable in popular regions for days. Bounded by the
+  polling loop below, or removed outright by PAYG or a paid box.
+- **Fallback is a paid VPS.** Prefer **ARM** (Hetzner CAX11, 2 dedicated Ampere cores,
+  €5.99/mo) over x86: it keeps the ARM port meaningful and matches the free shape's core
+  count. A paid x86 box (CPX21-class) reverts the port entirely and is the fallback only if
+  ARM measures badly in §6.
 
 #### Capacity is waitable, not merely a coin flip
 
@@ -135,19 +169,31 @@ do the waiting.
    reproduce exactly.
 3. **Run a polling script** on the micro instance under `screen`/`tmux`, configured with
    those IDs and an OCI API key, retrying every 30–60 s until a launch succeeds.
-   `hitrov/oci-arm-host-capacity` is the commonly used one.
 
-**Read the script before running it.** It holds an API key with authority to create
-billable infrastructure in the tenancy, so it is a credential-handling decision, not a
-convenience one — pin a reviewed commit rather than tracking a moving branch, and keep the
-key scoped to instance provisioning.
+**On the script itself.** `hitrov/oci-arm-host-capacity` is the one usually named, but it
+was **archived on 2024-08-13** and is read-only — still reported as functional, but
+unmaintained against an API that has changed since. Treat it as a worked example of the
+`LaunchInstance` retry rather than a dependency to adopt: the loop is a few lines against
+the OCI SDK, and writing it directly avoids inheriting an abandoned PHP toolchain.
+
+**Read whatever you run.** It holds an API key with authority to create billable
+infrastructure in the tenancy, so it is a credential-handling decision, not a convenience
+one — pin a reviewed commit rather than tracking a moving branch, and keep the key scoped
+to instance provisioning.
 
 **Poll politely.** 30–60 s is the interval that works; tighter risks API throttling, which
 delays the thing it is trying to win.
 
-This bounds the *capacity* risk only. **Reclamation is untouched** — a near-idle instance
-can still be taken back later, and the same loop would then be re-provisioning a service
-already in use. That is the risk that argues for the paid box, and it is not solved here.
+**The cheaper route to the same place: Pay As You Go.** A PAYG upgrade gets launch priority
+and largely stops the capacity error, while the Always Free allowances still cost nothing.
+Reporting is mixed on whether PAYG accounts kept the pre-June 4 OCPU / 24 GB allowance —
+Oracle's support said yes, its documentation implies the new limit applies to all
+tenancies — so do not plan on the larger shape.
+
+This bounds the *capacity* risk only. **Reclamation is untouched, and it is the binding
+constraint** — see the correction at the head of this section. A near-idle instance can
+still be taken back, and the same loop would then be re-provisioning a service testers are
+already using. That is the risk that argues for the paid box, and it is not solved here.
 
 ### The ARM port is three coordinated changes
 
