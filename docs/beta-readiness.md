@@ -120,6 +120,35 @@ Accepted risks, explicitly:
 - **Capacity.** Free ARM is often unavailable in popular regions for days.
 - **Fallback is a paid x86 VPS** (Hetzner-class, €5–8/mo) if either bites.
 
+#### Capacity is waitable, not merely a coin flip
+
+The "out of capacity" error is transient, not a verdict: ARM cores free up whenever another
+tenant releases theirs. Retrying on a loop turns an unbounded wait into a bounded one, and
+costs nothing — the always-free AMD micro instance is available when ARM is not, so it can
+do the waiting.
+
+1. **Launch an Always Free AMD micro instance** (`VM.Standard.E2.1.Micro`, Ubuntu). Two are
+   included, and they are not subject to the ARM contention.
+2. **Capture the request parameters.** Attempt the ARM launch in a desktop browser with the
+   Network tab open. When it fails on capacity, copy the failed `/instances` call as cURL
+   and extract `subnetId`, `imageId`, and `compartmentId` — the shape the retry must
+   reproduce exactly.
+3. **Run a polling script** on the micro instance under `screen`/`tmux`, configured with
+   those IDs and an OCI API key, retrying every 30–60 s until a launch succeeds.
+   `hitrov/oci-arm-host-capacity` is the commonly used one.
+
+**Read the script before running it.** It holds an API key with authority to create
+billable infrastructure in the tenancy, so it is a credential-handling decision, not a
+convenience one — pin a reviewed commit rather than tracking a moving branch, and keep the
+key scoped to instance provisioning.
+
+**Poll politely.** 30–60 s is the interval that works; tighter risks API throttling, which
+delays the thing it is trying to win.
+
+This bounds the *capacity* risk only. **Reclamation is untouched** — a near-idle instance
+can still be taken back later, and the same loop would then be re-provisioning a service
+already in use. That is the risk that argues for the paid box, and it is not solved here.
+
 ### The ARM port is three coordinated changes
 
 `engine/Dockerfile` hardcodes the architecture in the **asset name**, not merely a build
@@ -229,8 +258,11 @@ schema it describes, and must not drift from the other two.
 
 **Steps 1–4 are unblocked.** Step 5 can be written but not verified without ARM hardware.
 Steps 6–8 need the Oracle instance, which cannot be provisioned from here and may wait days
-on free-tier capacity. **If capacity never materialises, D4 reverts to the paid x86 box and
-steps 5–7 largely evaporate** — the rest of the spec stands unchanged.
+on free-tier capacity — though that wait is bounded by the polling loop in §5, which is the
+first thing to reach for rather than the last. **If capacity never materialises, D4 reverts
+to the paid x86 box and steps 5–7 largely evaporate** — the rest of the spec stands
+unchanged. Since steps 1–4 do not depend on the host at all, the loop can run while they
+are being built; the wait is only on the critical path if nothing else is being done.
 
 ---
 
