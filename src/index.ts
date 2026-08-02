@@ -21,6 +21,20 @@ const engine = cachingEngine(httpEngineClient(ENGINE_URL));
 
 const handler = createChessMcpHandler(() => engine);
 
+/** Reads a web `ReadableStream` as an async iterable, releasing the reader when done. */
+async function* streamChunks(stream: ReadableStream<Uint8Array>): AsyncGenerator<Uint8Array> {
+  const reader = stream.getReader();
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) return;
+      if (value !== undefined) yield value;
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 const server = createServer((req, res) => {
   const chunks: Buffer[] = [];
   req.on('data', (chunk: Buffer) => chunks.push(chunk));
@@ -28,15 +42,42 @@ const server = createServer((req, res) => {
     void (async () => {
       try {
         const body = Buffer.concat(chunks);
-        const request = new Request(`http://localhost${req.url ?? '/'}`, {
+        const url = `http://localhost${req.url ?? '/'}`;
+
+        // The client hanging up has to reach the handler, or a streaming response has no
+        // way to learn its reader is gone and its keep-alive timer runs forever.
+        //
+        // Scoped to this exchange, deliberately. `res.on('close')` fires when a keep-alive
+        // socket is *reused* as well as when it drops, which aborts whichever request
+        // arrives next on that connection — and a client that pipelines its handshake
+        // would fail intermittently, on a timer nothing in the request itself explains.
+        const abort = new AbortController();
+        res.once('finish', () => abort.abort());
+        req.once('aborted', () => abort.abort());
+
+        const request = new Request(url, {
           method: req.method ?? 'GET',
           headers: req.headers as Record<string, string>,
+          signal: abort.signal,
           ...(body.length > 0 ? { body } : {}),
         });
 
         const response = await handler.fetch(request);
         res.writeHead(response.status, Object.fromEntries(response.headers));
-        res.end(Buffer.from(await response.arrayBuffer()));
+
+        // Buffering the body would hang an SSE stream, which by design does not end.
+        // Written through chunk by chunk, a stream stays a stream and a finite body is
+        // unaffected.
+        if (response.body === null) {
+          res.end();
+          return;
+        }
+
+        for await (const chunk of streamChunks(response.body)) {
+          if (res.writableEnded) break;
+          res.write(Buffer.from(chunk));
+        }
+        res.end();
       } catch (error) {
         // The engine being unreachable is the common case here. Say so plainly rather
         // than letting the socket hang.
