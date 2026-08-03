@@ -1,14 +1,31 @@
-# Tunnel handoff: exposing the beta to a free-tier Grok user
+# Tunnel handoff: exposing the server to a free-tier Grok user
 
 Research only. No tickets written, no code changed. For grilling in a fresh session.
 
 Date: 2026-08-03. Everything below dated because tunnel free tiers move.
 
+**How to read this.** Claims are marked by strength. **Observed** = seen first-hand.
+**Primary** = from ngrok's or xAI's own docs. **Secondary** = blogs and aggregators,
+which have already been wrong once here (see the paywall section). **Inference** = my
+reasoning from a verified fact, flagged as such. Where a claim could not be verified it
+says so rather than being quietly dropped.
+
 ## The shape of the plan being tested
 
 Operator runs the engine and the MCP handler on their own laptop, exposes `:8091/mcp`
-through a tunnel with a stable public URL, and hands the beta tester a URL to paste into
+through a tunnel with a stable public URL, and hands the tester a URL to paste into
 grok.com → Connectors → New Connector → Custom. The tester installs nothing.
+
+**Who the tester is** (shapes what matters): a friend who already uses Grok to analyse
+chess games with Stockfish alongside it, manually. Not a developer being asked to
+evaluate an install. This is a real workflow upgrade for him — the engine numbers arrive
+inside the conversation instead of being copied between two windows. Consequences:
+
+- The "this tests analysis quality, not installability" tradeoff below is **the right
+  tradeoff**, not a compromise. He is the target user for the tool, not for the repo.
+- He has a **baseline to compare against** — his current manual Stockfish workflow. That
+  makes him a genuinely useful tester of whether the numbers and the discipline hold up.
+- Phone support matters more than it would for a developer tester (see below).
 
 ## Question that was asked: can a free tunnel hold a stable URL?
 
@@ -29,8 +46,11 @@ property of Cloudflare *named* tunnels.
 
 ### Cloudflare named tunnel — stable, but needs a domain
 
-- A *named* tunnel mapped to a hostname never changes, free plan, no request cap of
-  note. Requires **a domain already on Cloudflare DNS** — that's the cost, not money.
+- A *named* tunnel mapped to a hostname never changes, free plan. Requires **a domain
+  already on Cloudflare DNS** — that's the cost, not money. (Secondary sources; I did not
+  confirm named-tunnel limits against Cloudflare's own docs. The claim of "no request cap
+  of note" in an earlier draft was **unverified** — if Cloudflare becomes the chosen
+  path, check its actual free-plan limits before relying on that.)
 - The `trycloudflare.com` **quick** tunnel is the ephemeral one: random URL, changes on
   restart, 200 concurrent request cap, and **no SSE support**. This is what the xAI docs
   warn about, and it is a different product from a named tunnel. Do not conflate them.
@@ -38,8 +58,10 @@ property of Cloudflare *named* tunnels.
 ### Recommendation
 
 **ngrok**, unless a Cloudflare-managed domain is already on hand — in which case a named
-tunnel is strictly better (no request cap, no interstitial, no vendor quota). ngrok wins
-on setup cost from zero: no domain required, three commands.
+tunnel is worth comparing, since it avoids ngrok's 20k/month request quota and its
+interstitial. ("Strictly better" in an earlier draft overstated it; Cloudflare's own
+free-plan limits were not checked.) ngrok wins on setup cost from zero: no domain
+required, and its limits below are confirmed from primary docs.
 
 ## Free-tier limits that actually apply (ngrok)
 
@@ -60,10 +82,13 @@ programmatic/API access — it targets browser HTML traffic. Grok's connector is
 client. If it ever did appear, `ngrok-skip-browser-warning` or a non-standard User-Agent
 clears it. Several blog posts imply this breaks API use; they are wrong.
 
-**20k requests/month is the only real ceiling**, and it is almost certainly fine: one
-tester doing chess analysis makes tens of calls per session, not thousands. Worth a
-sanity count during the beta rather than a design constraint. Note MCP handshakes and
-any polling count toward it too.
+**20k requests/month is the only real ceiling.** My estimate is that one tester analysing
+games makes tens of calls per session rather than thousands, which leaves large headroom
+— but that is an **inference about usage, not a measurement**, and this tester analyses
+chess games as an existing habit, so his volume is unknown. The ngrok dashboard reports
+actual request counts; check it after the first real session instead of trusting the
+estimate. MCP handshakes and any connector polling count toward the quota too, and
+polling in particular could change the arithmetic entirely if Grok does it.
 
 ## Transport: verified compatible, and this was the live risk
 
@@ -106,24 +131,72 @@ Not yet observed, and worth checking in the same dialog: what the *Custom* form 
 **besides** the URL field — specifically whether there is an auth-type selector, an
 optional headers field, or nothing at all. That answer picks the auth design (below).
 
-Grok Skills, separately: a real upload surface accepting `.md` / `.skill` / `.zip` in the
-Anthropic SKILL.md format, loaded into the system prompt — not chat-pasting. Also
-reported paid-only. **Largely moot**: operator discipline ships in the tool description
-(`src/mcp-handler.ts:237-241` and the `movetime_ms` text at :60-76), so a tester without
-Skills still gets the constraints that matter. The skill is reinforcement, not the
-carrier. This weakens the case for caring about the Skills paywall at all.
+Grok Skills, separately: reported (secondary sources; **not confirmed in xAI's own docs,
+and not observed**) to be a real upload surface accepting `.md` / `.skill` / `.zip` in the
+Anthropic SKILL.md format, loaded into the system prompt — a distinct UI surface, not
+chat-pasting. Also reported paid-only; given those same sources were wrong about the
+connector paywall, **that gating claim deserves no confidence either** and can be checked
+in the same visit as the connector dialog.
+
+**Largely moot regardless.** Operator discipline ships in the tool description — this
+part is **verified in the code**: `src/mcp-handler.ts:237-241` carries "check a move
+against this list before asserting it is legal, best, or playable," and the `movetime_ms`
+description at :60-76 carries depth-as-outcome. A tester with no Skills access still
+receives the constraints that matter, because they arrive with the tool itself. The skill
+file is reinforcement, not the carrier.
+
+## Phone: expected to work, and the architecture is why
+
+**The tester's device never touches the tunnel.** Grok's connectors execute on xAI's
+servers — that is the same property that forced the tunnel in the first place (localhost
+is rejected because *xAI's* infrastructure must reach the URL, not the user's browser).
+The phone sends a prompt to xAI; xAI calls the ngrok URL; the laptop answers. The phone
+is a thin client and never resolves `ngrok-free.app` itself.
+
+This is a **deduction from a verified fact**, not a separately verified one. It follows
+directly from the documented localhost rejection, and it is strong — but see below.
+
+Supporting, from secondary sources only: connectors are reported to have launched on
+Grok Web, iOS, and Android (May 2026), with connectors tied to the account so setup on
+web carries to mobile. **xAI's own announcement page (x.ai/news/grok-connectors) returned
+403 and could not be read**, so platform availability rests on secondary reporting. One
+of those same sources also repeats the "paid tiers only" claim that direct observation
+has already disproved — so treat their *detail* as unreliable even where the *direction*
+is corroborated.
+
+Two things worth noting for the test:
+
+- Mobile connector settings are reported at **Settings → Connectors** rather than the
+  web's Skills-and-Connectors screen. Whether a *custom* connector can be **created** on
+  mobile, versus only used once created on web, is **unverified** — and it does not
+  matter much, since the operator creates the connector on web anyway.
+- Nothing about the tunnel, transport, or auth changes between phone and desktop. Same
+  URL, same JSON-over-POST traffic, same request quota.
+
+**Cheap to confirm:** the operator tests on their own account first (already the plan) —
+add the connector on web, then open Grok on a phone and ask a chess question. If the
+answer carries engine numbers, mobile works. Costs one prompt.
 
 ## Security: the part that needs a decision, not a ticket
 
 **The server has no authentication.** No bearer token, no origin check, nothing in
 `src/index.ts`. Correct for a localhost bind; **not** correct behind a public URL.
 
-A tunnel makes it internet-reachable. Tunnel URLs are not secrets — the `.ngrok-free.app`
-space is scanned. Consequences of an open endpoint:
+A tunnel makes it internet-reachable. Consequences of an open endpoint:
 
 - Anyone reaching it drives Stockfish on the operator's laptop — CPU burn, and a trivially
   effective way to exhaust the 20k/month request quota.
 - It is an unauthenticated compute endpoint on a personal machine.
+
+**Claim strength, stated honestly.** An earlier draft asserted "the `.ngrok-free.app`
+space is scanned." **That was my inference, not a sourced finding** — searching for
+evidence of scanning campaigns against ngrok-free domains turned up ngrok feature
+announcements and generic best-practice advice, no security research documenting it.
+What *is* documented, from ngrok's own material: leaving a static URL without access
+controls "leaves it open to the public," and exposing endpoints without authentication is
+listed as a common mistake. The argument for auth rests on the endpoint being
+unauthenticated and reachable, which is certain — not on a scanning claim I cannot
+support. Treat the risk as real but unquantified.
 
 With the paywall cleared, **this is now the deciding design question**, and it is
 awkward — because it is not obvious Grok's custom-connector UI can send a static token.
@@ -179,8 +252,11 @@ difference between handing over a URL and handing over the laptop.
   awake, Docker up, tunnel running. Sleep, reboot, or network change ends the session.
   Stable URL means no re-pasting, but availability is still a person.
 - **What is the beta testing?** This path tests engine correctness and response quality
-  well. It tests *installation* not at all — the tester installs nothing. If
-  "can someone stand this up?" is a beta goal, this design cannot answer it.
+  well, and *installation* not at all — the tester installs nothing. Given who he is
+  (an existing Grok-plus-Stockfish user, not a developer), that is the **right** split:
+  the questions worth answering are whether the numbers are trustworthy and whether the
+  operator discipline survives contact with a real user. Installability is a separate
+  question for a later, different tester.
 - **Cost comparison is closer than it looks.** Tunnel is free in dollars but costs
   operator availability for the beta's duration. Hosting would solve auth and uptime
   together; the tunnel solves neither, it just defers them. That trade is now a genuine
@@ -191,6 +267,10 @@ difference between handing over a URL and handing over the laptop.
 Q1 is answered: **custom connectors work on the free tier**, observed directly. The
 remaining questions are all downstream of auth.
 
+0. **Does it work end-to-end on the operator's own account, then on a phone?** The
+   operator is testing first regardless, so this costs one prompt and answers the phone
+   question, the SSE question, and the request-count question at once. Do this before
+   anything else here.
 1. **What else is in the Custom connector dialog besides the URL field?** An auth-type
    selector? A headers field? Nothing? Decides Q2 and Q3. Cheapest open question here.
 2. Can Grok's web UI send a **static bearer token** or custom header? If not, option (2)
