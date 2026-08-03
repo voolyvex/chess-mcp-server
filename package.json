@@ -11,6 +11,7 @@
   "scripts": {
     "start": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
+    "bench": "tsx bench/depth-at-budget.ts",
     "test": "npm run typecheck && vitest run",
     "test:watch": "vitest"
   },

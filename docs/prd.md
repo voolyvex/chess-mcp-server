@@ -177,6 +177,34 @@ dependencies float on every run is a pin with a hole in it.
    given, by design.
 5. Ambiguous input returns an error naming the ambiguity — never an evaluation of a
    position the user did not ask about.
+6. `legacy/` is deleted, and nothing in the product references it.
+   **Done 2026-08-01.** The directory was untracked from the start (D#12), so deleting it
+   left no history residue — `git status` did not move. The authoritative copy remains at
+   `github.com/voolyvex/chess-context`. The `.gitignore` entry is kept deliberately: it
+   costs nothing and stops a future reference copy from being committed by accident.
+7. **Depth reached at a fixed budget is recorded per phase**, so a change of host can be
+   judged on search quality rather than on latency — which criterion 4 pins to the budget by
+   design and which therefore cannot detect a slower CPU at all.
+
+   **Measured 2026-08-02** by `bench/depth-at-budget.ts` against the committed 9-position
+   fixture, 3 repeats per position at a 2000ms budget, MultiPV=1, same host as criterion 4
+   (12 logical cores, Stockfish 18 bmi2, `Threads=4`, `Hash=256`):
+
+   | Phase | Depth (median) | Range across runs |
+   |---|---|---|
+   | Opening | 24 | 21–25 |
+   | Middlegame | 22 | 20–24 |
+   | Endgame | 55 | 50–68 |
+
+   Overhead above budget, as wall-clock minus budget: **median 4ms, max 12ms.**
+
+   Read per phase, never pooled: the endgame figure is more than double the middlegame one
+   at the same budget, so an average across all nine positions would describe no position in
+   the fixture. The within-position spread is real — SMP search is nondeterministic, and
+   endgame-1 returned depths 55 through 68 across three runs at an identical budget — which
+   is why **no pass/fail threshold is fixed in advance**. The thread count is part of the
+   result, not the environment: this ran `Threads=4` on a 12-thread host, where Stockfish
+   had headroom that a 4-core host would not give it.
 
 ## 9. Risks
 
