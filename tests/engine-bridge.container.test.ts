@@ -71,8 +71,8 @@ describe.skipIf(await engineUnreachable())('tier 2, engine bridge', () => {
     });
 
     it('returns a low reported depth on a short budget, never a 5xx', async () => {
-      // The prototype's defect: its timer fired, it discarded the accumulated lines and
-      // returned an error. Budget exhaustion is the normal case, not a failure.
+      // Budget exhaustion is the normal case, not a failure: when the timer fires the
+      // bridge must return the deepest completed iteration, never discard it and 5xx.
       const response = await analyze({ fen: MIDDLEGAME_FEN, movetimeMs: 50 });
       expect(response.status).toBe(200);
 
@@ -170,8 +170,8 @@ describe.skipIf(await engineUnreachable())('tier 2, engine bridge', () => {
       // Version is harvested from the UCI handshake, not hardcoded, so this asserts the
       // parse worked rather than pinning a number the Dockerfile owns.
       expect(identity.version).toMatch(/^\d/);
-      // Part of the cache key downstream: the prototype omitted it and, after a failover
-      // between two engine versions, served one engine's evaluations as the other's.
+      // Part of the cache key downstream: omit it and a failover between two engine
+      // versions serves one engine's evaluations as the other's.
       expect(identity.build).not.toBe('unknown');
     });
 

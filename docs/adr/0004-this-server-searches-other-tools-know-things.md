@@ -38,8 +38,8 @@ provenance**, addressed by the agent, never called by this server and never a fi
 The three kinds of claim ADR-0003 named — engine evidence, learned annotation, assistant
 reasoning — extend to a fourth, recorded fact from a database. Distinct sources, distinct
 tools, so a reader can always tell which one they hold. The PRD already reaches the same
-conclusion from two directions: "opening theory" sits in non-goals under *porting the
-prototype*, and *persistence* is a non-goal in its own right.
+conclusion from two directions: "opening theory" sits in non-goals under *chess knowledge
+this server does not search for*, and *persistence* is a non-goal in its own right.
 
 Dispositions for the two features raised:
 
@@ -74,6 +74,5 @@ interesting, and until a database tool exists, sidelines the engine does not ran
 invisible. That is a known gap with a known owner, not an argument for widening this
 server.
 
-Building the ecosystem before this component is finished would repeat the prototype's
-failure precisely — `chess-context` shipped 13 tools with nothing consuming them. Server
-first.
+Building the ecosystem before this component is finished is how you end up with a wide
+tool surface and nothing consuming it. Server first.
