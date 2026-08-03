@@ -88,22 +88,23 @@ just removes the residual risk on the GET path.
 Unverified: whether Grok's connector opens the SSE GET at all. Cheap to observe in the
 ngrok request inspector on first connect.
 
-## The blocker that outranks all of this
+## The paywall blocker: CLEARED by direct observation (2026-08-03)
 
-**Custom (BYO) MCP connectors are probably SuperGrok-gated.** Multiple secondary sources
-state the BYO-MCP path requires SuperGrok or higher, while first-party catalog connectors
-reach the free tier. xAI's own connectors doc says only "Connectors are available to all
-Grok users" and does not address the custom path either way — so this is **strongly
-indicated but not confirmed from the primary source.**
+**Custom connectors are available on the free tier.** Checked first-hand on a free
+(non-SuperGrok) account: *Skills and Connectors → Connectors → New Connector → + Custom*
+is present and prompts for an **MCP Server URL**.
 
-If true, the entire tunnel plan fails for a free-tier tester, and no amount of tunnel
-engineering fixes it. Same paywall that ruled out Grok Build CLI (SuperGrok $30/mo, no
-free tier).
+This **overturns** the secondary sources that claimed BYO-MCP requires SuperGrok or
+higher (SegmentStream, Plurality, PortEden all say so). They are wrong, or describe a
+gate xAI has since removed. Direct observation beats them. xAI's own doc — "Connectors
+are available to all Grok users" — turns out to have meant what it said.
 
-**Verify before writing any tickets:** have the tester open grok.com/connectors and
-report whether *New Connector → Custom* is present and clickable on their account. Five
-minutes, and it gates everything downstream. Everything in this document is contingent
-on that answer.
+The tunnel plan is therefore **viable for a free-tier tester**. Grok Skills is still
+reported paid-only, but as noted below that is moot.
+
+Not yet observed, and worth checking in the same dialog: what the *Custom* form offers
+**besides** the URL field — specifically whether there is an auth-type selector, an
+optional headers field, or nothing at all. That answer picks the auth design (below).
 
 Grok Skills, separately: a real upload surface accepting `.md` / `.skill` / `.zip` in the
 Anthropic SKILL.md format, loaded into the system prompt — not chat-pasting. Also
@@ -124,18 +125,53 @@ space is scanned. Consequences of an open endpoint:
   effective way to exhaust the 20k/month request quota.
 - It is an unauthenticated compute endpoint on a personal machine.
 
-Options, in order of preference:
+With the paywall cleared, **this is now the deciding design question**, and it is
+awkward — because it is not obvious Grok's custom-connector UI can send a static token.
 
-1. **Bearer token in the server**, passed as a connector auth header. Small change; Grok
-   supports auth on custom connectors. Makes the URL safe to hand over.
-2. **ngrok-side auth** — ngrok can enforce a header/basic-auth at the edge without
-   touching the server. Fastest, and free-tier availability of the specific traffic-policy
-   feature needs checking.
-3. **Run only during supervised sessions.** Acceptable for a one-hour scheduled test;
-   not for a multi-week beta.
+### The complication
 
-Do not skip this. A token is the difference between handing over a URL and handing over
-the laptop.
+The observed dialog asks for an **MCP Server URL**. Whether it also offers an auth-type
+selector or a headers field is **unknown** — worth a second look at the same screen,
+since it decides everything below.
+
+The xAI docs say only "complete any required authentication" and "if your MCP server
+requires OAuth or API keys, you will still complete that flow in Grok" — no statement
+about static bearer tokens or a no-auth option.
+
+**A caution for the grilling session:** searches on this turn up GitHub issues titled
+"Cannot configure Authorization: Bearer for custom remote MCP" and "no 'no auth' option
+in admin UI". Those are filed against **`anthropics/claude-ai-mcp` — Claude's connector
+UI, not Grok's.** They are *not* evidence about Grok and must not be cited as such. I
+nearly propagated that error. Grok's actual behaviour on both questions is unverified.
+
+Two unknowns follow, and they pull in opposite directions:
+
+- If Grok **cannot** declare a server unauthenticated, an anonymous server may fail to
+  connect at all — auth becomes mandatory to work, not just to be safe.
+- If Grok **cannot** send a static bearer token, then server-side token auth is
+  unreachable from the web UI, and edge auth is the only option.
+
+### Options
+
+1. **ngrok edge auth (basic-auth traffic policy).** Enforces credentials at the tunnel
+   before traffic reaches the laptop; server untouched, so it respects `docs/prd.md:35`
+   ("No hosting, TLS, OAuth, or multi-tenancy in scope") and ADR-7. Free tier includes
+   **the first 2,000 requests with actions enabled** — beyond that it needs a paid plan,
+   which may or may not cover a beta. Unknown whether Grok's UI can supply basic-auth
+   credentials.
+2. **Bearer token in `src/index.ts`.** Small, self-contained, works regardless of tunnel
+   vendor. Blocked if the connector UI cannot send a custom header.
+3. **Supervised sessions only.** Tunnel runs during a scheduled hour with the operator
+   watching, then stops. Sidesteps both unknowns entirely and needs no code. Good for a
+   first session; not a multi-week posture.
+
+**Recommendation: start with (3) for the first session**, which needs no decision and no
+code, and use it to *observe* what the connector actually sends — the ngrok request
+inspector will show the headers verbatim. That converts both unknowns into facts, and
+then (1) or (2) is an informed choice rather than a guess.
+
+Do not hand over a persistent URL on an unauthenticated endpoint. A token is the
+difference between handing over a URL and handing over the laptop.
 
 ## Operational reality to weigh before committing
 
@@ -146,18 +182,33 @@ the laptop.
   well. It tests *installation* not at all — the tester installs nothing. If
   "can someone stand this up?" is a beta goal, this design cannot answer it.
 - **Cost comparison is closer than it looks.** Tunnel is free in dollars but costs
-  operator availability for the beta's duration. If the custom-connector paywall holds,
-  the choice collapses to hosting (which also solves auth and uptime) or running the beta
-  on Claude, where `.claude/skills/` and `CLAUDE.md` load natively.
+  operator availability for the beta's duration. Hosting would solve auth and uptime
+  together; the tunnel solves neither, it just defers them. That trade is now a genuine
+  choice rather than a forced move — the paywall no longer decides it.
 
 ## Open questions for the grilling session
 
-1. Is *New Connector → Custom* available on the tester's free account? **Gates everything.**
-2. Bearer token in `src/index.ts`, or ngrok edge auth? Is edge auth on the free tier?
-3. Does Grok's connector open the SSE GET, or only POST? (Observe in ngrok inspector.)
-4. Is the beta testing the analysis quality, or the install path? Changes the whole design.
-5. If the paywall holds — host it, or move the beta to Claude?
-6. Does 20k requests/month survive the tester's actual usage pattern?
+Q1 is answered: **custom connectors work on the free tier**, observed directly. The
+remaining questions are all downstream of auth.
+
+1. **What else is in the Custom connector dialog besides the URL field?** An auth-type
+   selector? A headers field? Nothing? Decides Q2 and Q3. Cheapest open question here.
+2. Can Grok's web UI send a **static bearer token** or custom header? If not, option (2)
+   is off the table and edge auth is the only path.
+3. Will Grok connect to a server that declares **no authentication at all**, or does it
+   assume an OAuth flow? If it assumes OAuth, an anonymous server may not connect —
+   making auth mandatory for function, not just safety.
+4. Does ngrok's basic-auth traffic policy stay free past **2,000 action-enabled
+   requests**, and does that cover the beta's span?
+5. Does Grok's connector open the **SSE GET**, or only POST? (Observe in ngrok inspector;
+   answers itself during the first supervised session.)
+6. Is the beta testing **analysis quality or the install path**? This design tests the
+   former well and the latter not at all — the tester installs nothing.
+7. Does **20k requests/month** survive the tester's actual usage pattern?
+8. Does exposing this conflict with `docs/prd.md:35` and ADR-7 ("Localhost first. No TLS,
+   OAuth, or hosting on the critical path")? A tunnel is arguably not "hosting", but a
+   bearer token in `src/index.ts` is auth on the critical path. **Worth an explicit
+   decision — possibly a new ADR — rather than drifting past a recorded one.**
 
 ## Sources
 
