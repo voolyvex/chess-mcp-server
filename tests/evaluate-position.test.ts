@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { evaluatePosition } from '../src/evaluate-position.js';
+import type { EngineClient } from '../src/engine-client.js';
+import { evaluatePosition, MAX_MOVETIME_MS } from '../src/evaluate-position.js';
 import { fakeEngine, line } from './helpers/fake-engine.js';
 
 /**
@@ -271,6 +272,94 @@ describe('multipv ranks Engine Lines without disturbing best', () => {
     await expect(
       evaluatePosition(fakeEngine(), { fen: START_FEN, multipv }),
     ).rejects.toThrow(/multipv/);
+  });
+});
+
+describe('movetimeMs is bounded, so one request cannot spend unbounded engine CPU', () => {
+  /** Wraps an engine to record the budgets it was actually asked to search at. */
+  function recordingEngine(): { engine: EngineClient; budgets: (number | undefined)[] } {
+    const inner = fakeEngine();
+    const budgets: (number | undefined)[] = [];
+    return {
+      budgets,
+      engine: {
+        engineIdentity: inner.engineIdentity.bind(inner),
+        async analyze(request) {
+          budgets.push(request.movetimeMs);
+          return inner.analyze(request);
+        },
+      },
+    };
+  }
+
+  it.each([MAX_MOVETIME_MS + 1, 600_000, Number.MAX_SAFE_INTEGER])(
+    'rejects a %s ms budget rather than shortening it silently',
+    async (movetimeMs) => {
+      await expect(
+        evaluatePosition(fakeEngine(), { fen: START_FEN, movetimeMs }),
+      ).rejects.toThrow(/movetimeMs/);
+    },
+  );
+
+  it.each([0, -1, 2.5])('rejects a %s ms budget as not a budget at all', async (movetimeMs) => {
+    await expect(
+      evaluatePosition(fakeEngine(), { fen: START_FEN, movetimeMs }),
+    ).rejects.toThrow(/movetimeMs/);
+  });
+
+  it('names the bound in the error, so a caller learns the ceiling from the refusal', async () => {
+    await expect(
+      evaluatePosition(fakeEngine(), { fen: START_FEN, movetimeMs: MAX_MOVETIME_MS + 1 }),
+    ).rejects.toThrow(String(MAX_MOVETIME_MS));
+  });
+
+  it('dispatches no search at all when the budget is refused', async () => {
+    // The point of the bound is unspent CPU, not a tidy error. A rejected promise proves
+    // the caller was told no; only the absence of an `analyze` call proves the engine was
+    // never handed the budget in the first place.
+    const { engine, budgets } = recordingEngine();
+
+    await expect(
+      evaluatePosition(engine, { fen: START_FEN, movetimeMs: 600_000 }),
+    ).rejects.toThrow(/movetimeMs/);
+
+    expect(budgets).toEqual([]);
+  });
+
+  it('dispatches no search when an over-budget request also asks for a candidate', async () => {
+    // A candidate is a second search on the same budget, so this is the most expensive
+    // shape a single request has. It must be refused before either search starts.
+    const { engine, budgets } = recordingEngine();
+
+    await expect(
+      evaluatePosition(engine, { fen: START_FEN, candidate: 'e4', movetimeMs: 600_000 }),
+    ).rejects.toThrow(/movetimeMs/);
+
+    expect(budgets).toEqual([]);
+  });
+
+  it('passes a budget at the ceiling through untouched', async () => {
+    const { engine, budgets } = recordingEngine();
+
+    await evaluatePosition(engine, { fen: START_FEN, movetimeMs: MAX_MOVETIME_MS });
+
+    expect(budgets).toEqual([MAX_MOVETIME_MS]);
+  });
+
+  it.each([1, 200, 2_000])('passes a %s ms budget below the ceiling through untouched', async (movetimeMs) => {
+    const { engine, budgets } = recordingEngine();
+
+    await evaluatePosition(engine, { fen: START_FEN, movetimeMs });
+
+    expect(budgets).toEqual([movetimeMs]);
+  });
+
+  it('leaves an unspecified budget unspecified, so the engine keeps its own default', async () => {
+    const { engine, budgets } = recordingEngine();
+
+    await evaluatePosition(engine, { fen: START_FEN });
+
+    expect(budgets).toEqual([undefined]);
   });
 });
 
