@@ -126,7 +126,22 @@ their MCP config only at startup.
 If **Port already in use** — set `PORT` for the MCP server, or change the published port in
 `docker-compose.yml` for the engine and point at it with `ENGINE_URL`.
 
-## More
+## How your assistant uses it
+
+The repo ships an **operator skill** — `chess-engine-operator`, in `.claude/skills/` for
+Claude and `.agents/skills/` for Codex. Clone the repo and open your assistant in the
+folder and it picks the skill up on its own; there is nothing to install or enable.
+
+The skill is what keeps the assistant honest: never name a move that is not in the
+response's `legal_moves`, never call a move good or bad without scoring it, read the depth
+before trusting a number. Without it you still get correct numbers from the server, but
+nothing stops a fluent guess from sitting in the same paragraph beside them.
+
+You do not need to read it, and neither does your assistant until a chess question arrives.
+
+## Building on it
+
+For if you are changing the server, rather than using it:
 
 - [docs/prd.md](docs/prd.md) for what it does and why
 - [CONTEXT.md](CONTEXT.md) for the vocabulary

@@ -153,8 +153,8 @@ describe('one tool is discoverable', () => {
     const body = await rpc('tools/list');
     const tools = (body['result'] as { tools: Array<{ name: string }> }).tools;
 
-    // "One tool" is the product decision the prototype's 13 tools failed — assert the
-    // count, not merely the presence.
+    // "One tool" is a product decision (D#13), so assert the count, not merely that
+    // `evaluate_position` is present.
     expect(tools.map((tool) => tool.name)).toEqual(['evaluate_position']);
   });
 

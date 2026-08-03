@@ -53,8 +53,8 @@ function countingEngine(
 
 describe('the cache key includes engine identity', () => {
   /**
-   * Two engines behind one shared store — the prototype's actual failure, where a router
-   * fell back between Stockfish 15 and 18 and served one's evaluations as the other's.
+   * Two engines behind one shared store — a router falling back between Stockfish 15 and
+   * 18 and serving one's evaluations as the other's.
    * The identity is the *only* thing that differs; the FEN and the budget are identical,
    * so a key that omitted identity would hit here and be wrong.
    */

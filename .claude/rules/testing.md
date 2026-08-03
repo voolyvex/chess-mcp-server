@@ -8,10 +8,10 @@ paths:
 
 ## Never mock the engine in a test about what the engine means
 
-The prototype had **28 test files and mocked the engine in all of them**. Its sign bug
-survived every one, because the fixture (`makeLines(cp = 30)`) was fed in and then asserted
-to be White-relative — the test encoded the same misunderstanding as the code. Mocked
-coverage is structurally incapable of catching a bug about engine semantics.
+A mock that returns `makeLines(cp = 30)` and is then asserted to be White-relative encodes
+the same misunderstanding as the code it tests. It will pass across any number of test
+files while the sign is inverted in all of them. Mocked coverage is structurally incapable
+of catching a bug about engine semantics — only a real search can.
 
 ## Two tiers
 
@@ -33,7 +33,3 @@ typed as such, so it cannot launder the sign question.
 The engine-agnostic invariants run **in CI against the WASM package** — measured at 1.29s
 for three genuine depth-12 searches, no Docker required. Container-path tests (budget
 exhaustion, cache identity) run **locally**, skipped when the engine is unreachable.
-
-Adding the container to CI later is ~3 lines and a ~15s warm-cache cost. Note this is why
-the engine is pinned to `bmi2`: GitHub's runner pool mixes Intel Ice Lake with AMD EPYC
-Zen 3, so an AVX-512 pin would make that SIGILL on a coin flip.
