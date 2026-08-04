@@ -80,10 +80,18 @@ Grok's UI, the remaining controls are not authentication and are not described a
 2. **Rate limiting at the edge.** Does not prevent access. Bounds the cost of abuse to
    something below the point where a stranger can pin the operator's CPU with Stockfish
    searches.
-3. **An IP allowlist, if it proves possible.** The only genuine access control available,
-   and it needs no client cooperation — which is exactly why it survives a UI that can
-   send no headers. Whether xAI's connector egresses from a stable range is unknown and
-   observable in Cloudflare's logs on first connect.
+3. ~~**An IP allowlist, if it proves possible.**~~ **Measured 2026-08-04: not possible.**
+   The only genuine access control available, and it needed no client cooperation — which
+   is exactly why it would have survived a UI that can send no headers. The first
+   connection settled it: Grok's connector arrives from **`35.221.25.200`, which `whois`
+   places in `GOOGLE-CLOUD` (Google LLC, `35.208.0.0/12`)**. xAI runs connectors on Google
+   Cloud, so the choice is a `/12` of shared public cloud — roughly a million addresses,
+   every GCP tenant inside the perimeter — or a single `/32` that rotates without notice
+   and fails as silent 403s indistinguishable from a bug. Neither is access control.
+   Details in `docs/first-connection.md`.
+
+   **So the list above is now two items, not three**, and both are mitigations rather
+   than controls.
 
 **The first connection is an instrument.** The operator connects from their own Grok
 account before the tester receives any URL. That one exchange resolves, from Cloudflare's
@@ -112,10 +120,18 @@ had been learned about whether Grok's connector talks to this server correctly a
 The tunnel defers both problems rather than solving either. When the beta ends, this
 exception ends with it: the tunnel comes down, or hosting gets its own ADR.
 
-**The IP allowlist decides how long this posture is tenable.** If xAI's egress addresses
-are stable, the endpoint gains real access control and a multi-week beta is defensible.
-If they are not, the beta runs on obscurity and rate limiting alone, and its length
-should be reconsidered rather than extended by default.
+**The IP allowlist decided how long this posture is tenable, and it decided against.**
+This was written as a branch: stable egress meant real access control and a defensible
+multi-week beta; unstable egress meant obscurity and rate limiting alone. **Measured
+2026-08-04, it is the second branch** — the egress is Google Cloud, shared with every GCP
+tenant (see Decision item 3).
+
+The consequence this ADR committed to in advance therefore applies as written: **the
+beta's length should be reconsidered rather than extended by default.** Concretely — keep
+the tunnel down except during supervised sessions rather than leaving it up for the
+tester's convenience, and treat "how long until this comes down" as a question with a date
+attached rather than an open end. Nothing here forbids the beta; it removes the argument
+for a long one.
 
 **What this does not license.** No TLS code, no OAuth flow, no per-tenant anything in this
 repo. The seam is the tunnel, and it lives in `deploy/`, not `src/`. If authentication

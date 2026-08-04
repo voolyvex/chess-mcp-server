@@ -137,6 +137,61 @@ Cloudflare's dashboard (Zero Trust → Networks → Tunnels → chess-mcp) retai
 metadata independently of the local journal and is the more durable source for the source-IP
 question.
 
+---
+
+# The wire-level run (2026-08-04)
+
+The first run answered the client-facing questions and lost the wire-level ones to a
+journal rotation. This run captured them.
+
+## What had to be fixed first
+
+**The journal rotation was not the only reason the data was lost.** `cloudflared` at its
+default `INF` log level **does not log individual requests at all** — only connection
+lifecycle. A probe on 2026-08-04 returned HTTP 200 and left no trace in the journal. Had
+the run been repeated with only the `tee` fix from the first attempt, it would have
+produced the same empty result a second time.
+
+The fix is `loglevel: debug` in `~/.cloudflared/config.yml`, verified with a marked probe
+before the real run. Debug logs full request headers, which is what makes the source-IP
+question answerable — and also why it is a beta-test setting rather than a permanent one.
+
+## What Grok actually sent
+
+Nine requests across three connect cycles, each one `initialize` (254 bytes) →
+`tools/list` (54) → `tools/call` (1063, 1070, 343). Zero errors.
+
+| Question | Answer, from the wire |
+|---|---|
+| **Path** | `/mcp`, every request. Never `/sse` — the placeholder in Grok's dialog was a red herring. |
+| **Method** | **POST only. Zero GETs**, across all nine requests. |
+| **SSE GET (Q5)** | **Answered: no.** Grok never opens the stream, though it sends `Accept: text/event-stream, application/json`. |
+| **Transport** | Streamable HTTP, `Mcp-Protocol-Version: 2025-11-25`. Confirmed directly, no longer inferred from success. |
+| **User-Agent** | `grok-connectors-manager/0.1.0` |
+| **Auth headers** | None. No `Authorization`, no custom headers — ADR-0005's central finding, now observed rather than inferred from the dialog's two fields. |
+
+## The IP allowlist: measured, and ruled out
+
+**`Cf-Connecting-Ip: 35.221.25.200`.** `whois` places it in `GOOGLE-CLOUD`, Google LLC,
+within `35.208.0.0/12`. xAI runs its connectors on Google Cloud.
+
+An allowlist therefore means one of two things, and neither is access control:
+
+- **The `/12`** — roughly a million addresses of shared public cloud. Every GCP tenant is
+  inside the perimeter. This authenticates nothing.
+- **The single `/32`** — brittle. Managed-cloud egress addresses rotate without notice,
+  and the failure arrives as a silent 403 mid-session, indistinguishable from a bug in the
+  handler.
+
+ADR-0005 listed the allowlist as the one genuine control still available and made the beta's
+defensible length conditional on it. That condition is now resolved against, and the ADR has
+been amended: **the beta runs on an obscure hostname and edge rate limiting, and nothing
+else.**
+
+The `Cf-Ray` suffixes are all `-IAD` (Ashburn), one region in one session. A different
+region would not rescue the allowlist — it would widen the range that needed allowing, so
+further observation can only strengthen this conclusion, not reverse it.
+
 ## Caveats
 
 - **One prompt, one position, one mode.** Fast mode only; no phone test yet, so the phone
