@@ -73,10 +73,32 @@ those records on Cloudflare for no gain.
 **2. Authenticate `cloudflared` and create the tunnel.**
 
 ```bash
-cloudflared tunnel login                    # browser; pick the zone from step 1
+cloudflared tunnel login                    # blocks on a browser login — see below
 cloudflared tunnel create chess-mcp         # prints a UUID, writes ~/.cloudflared/<UUID>.json
 cloudflared tunnel route dns chess-mcp <random-label>.thymosengine.com
 ```
+
+`login` is not a command that returns; it prints a `dash.cloudflare.com/argotunnel?...`
+URL, waits for you to complete it in a browser, and only then writes `~/.cloudflared/cert.pem`.
+**On WSL2 it cannot open the browser** — copy the URL into Windows by hand. The browser
+shows a zone picker; **choose the zone from step 1**, because that choice is what the
+certificate authorises. Wait for `You have successfully logged in` before running anything
+else.
+
+If `login` is skipped, interrupted, or its URL never opened, no `cert.pem` is written and
+the next command fails with `Cannot determine default origin certificate path`. That error
+means step 2 has not happened yet — not that anything is misconfigured. `ls ~/.cloudflared/cert.pem`
+distinguishes the two.
+
+Two ways to complete a login and still hit that error: being signed into a **different
+Cloudflare account** than the one holding the zone, which shows an empty picker; and
+running `create` under `sudo`, which looks for the cert in root's home rather than the
+home that `login` wrote to. Run every command in this section as the same unprivileged
+user.
+
+Step 1 must be **finished**, not merely started — a zone whose nameserver change has not
+propagated does not appear in the picker at all. `dig +short NS thymosengine.com` returning
+Cloudflare nameservers is the check.
 
 **The subdomain label is a random string, not `mcp`.** `k7m2q9x4.thymosengine.com`, not
 `mcp.thymosengine.com`. This is obscurity, which is not authentication — it resists casual
