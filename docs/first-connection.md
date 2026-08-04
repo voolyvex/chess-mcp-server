@@ -192,6 +192,92 @@ The `Cf-Ray` suffixes are all `-IAD` (Ashburn), one region in one session. A dif
 region would not rescue the allowlist — it would widen the range that needed allowing, so
 further observation can only strengthen this conclusion, not reverse it.
 
+## Phone: the connector did not fire, and Grok substituted its own engine
+
+**The phone run produced a confident, numerically specific, largely correct answer without
+ever contacting this server.** The wire log is conclusive: the last request arrived at
+16:19:32 (the desktop run), the phone session ran around 16:30, and a marked probe at
+16:32:44 appeared in the capture instantly — proving the pipeline was live and the silence
+real. Zero requests. The connector was enabled in the app.
+
+What happened instead was visible in the client: **Grok began installing packages and
+running Python.** Unable to reach the connector, it fell back to its own sandbox, pip-installed
+a chess engine, and answered from that.
+
+Two tells in the transcript, both invisible to a reader without the log:
+
+- **"depth 24."** This server reports **depth 17** at 5000 ms on this position. Depth 24 is a
+  different engine on a different budget.
+- **"ranking it only 5th–6th."** Real `multipv` output does not hedge between two ranks. The
+  engine's top five here are all queen moves (Qc2, Qe2, Qb1, Qc1, Qg4); `exf6` appears in
+  none of them, so no `multipv` call could have produced that phrase.
+
+### Both answers were roughly right, and that is the problem
+
+Verified against the handler (FEN `r2q1rk1/pb2b1pp/1p3p2/2p1P3/4p3/1P2P1P1/PB3PBP/R2QR1K1 w - - 0 16`,
+`multipv: 5`, `movetime_ms: 5000`, and `exf6` as a dedicated candidate):
+
+| Claim | Desktop (connector fired) | Phone (no request) | Engine, measured |
+|---|---|---|---|
+| Position | +0.95 to +1.00 | +0.8 "at depth 24" | **+89 cp**, depth 17 |
+| Best | Qc2 ~+0.99 | Qc2 +0.80–0.85 | **Qc2 +89** |
+| 2nd | Qe2 ~+0.75 | Qe2 +0.65–0.70 | **Qe2 +62** |
+| 3rd–4th | Qc1 ~+0.70 | Qb1 / Qc1 +0.45–0.55 | **Qb1 +49, Qc1 +42** |
+| `exf6` | ~+0.20, delta −75 cp | ~+0.25, "5th–6th" | **+20 cp**, depth 21 |
+
+The desktop figures track the measured values closely — its stated −75 cp delta against a
+true 89 − 20 = 69 — and are engine output, lightly rounded. **The phone figures are also
+close.** Its +0.8 sits near the true +0.89. Its move order is correct. Its verdict on `exf6`
+is correct.
+
+**Nothing in the phone's prose reveals that it never called the engine.** It is better
+written than the desktop answer, cites a depth, and formats a ranked table. The only thing
+distinguishing fabricated provenance from real provenance was a log on the operator's
+machine — which the tester will not have.
+
+This is the exact failure `CLAUDE.md` names in one line: *if a response field could have
+been invented by an assistant, it does not belong in the response.* Observed here from the
+outside, in the wild, on the first mobile attempt.
+
+### Consequence
+
+**The phone question is answered, and worse than "no."** It does not fail visibly. It fails
+into a plausible substitute, and a tester comparing "Grok with the tool" against "Grok
+without it" would be comparing two runs of Grok-without-it and finding, correctly, that the
+tool made no difference.
+
+The beta must therefore be **desktop-only**, and the tester told so explicitly — not as a
+preference but because mobile silently invalidates the thing being measured. If mobile
+cannot be excluded, the tester needs a way to confirm the tool was actually called, and
+`docs/beta-readiness.md` §7 (operator discipline for a client with no filesystem) is where
+that belongs.
+
+Not established: whether this is a permanent mobile limitation or a transient failure of
+one session. One observation. The connector was enabled and visible in the app, which rules
+out the simplest explanation.
+
+## Phone: the client rejects `.pgn`
+
+Observed 2026-08-04 on the Grok mobile app: **the file picker refuses a `.pgn` upload.**
+Renaming the identical file to `.txt` is accepted, and everything downstream behaves the
+same.
+
+**This is a Grok client limitation, and there is nothing to fix in this repo.** The server
+never receives a file — Grok reads the PGN itself and sends move text in the JSON body, so
+the extension never reaches `src/`. No handler change would affect it.
+
+It still matters, because it lands on exactly what this beta tests. `docs/beta-readiness.md`
+§6 scopes the beta to analysis quality on the assumption that the tester installs nothing
+and therefore hits no setup friction. A rejected `.pgn` is setup friction that survives that
+assumption: the tester's natural move is to export a game from chess software and upload it,
+the format that software emits is `.pgn`, and the failure gives no hint that renaming is the
+fix. The likely reading is "the tool is broken."
+
+**Consequence: the tester's instructions must say it.** One line — *on mobile, rename `.pgn`
+to `.txt` before uploading* — costs nothing and removes a failure that looks like ours.
+
+Desktop was not observed to have this restriction; only the mobile app was tested for it.
+
 ## Caveats
 
 - **One prompt, one position, one mode.** Fast mode only; no phone test yet, so the phone

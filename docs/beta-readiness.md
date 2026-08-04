@@ -254,3 +254,41 @@ D4 reverts to x86 and steps 5–7 largely evaporate** — the rest of the spec s
 1. **Plan tier** — individual (self-serve) or Business/Enterprise (needs an admin at
    `console.x.ai` first). A blocker worth finding now, not on test day.
 2. Confirm `grok.com` chat, not Grok Build.
+
+## 10. Desktop only — mobile silently invalidates the measurement
+
+**On 2026-08-04 the Grok mobile app answered a chess question with specific centipawn
+numbers, a ranked table, and a stated search depth, having never contacted this server.**
+The connector was enabled. Zero requests reached the tunnel; a probe minutes later proved
+the capture was live. Grok pip-installed its own engine and answered from that
+(`docs/first-connection.md`).
+
+The numbers were roughly right — +0.8 against a measured +0.89, correct move order, correct
+verdict. **That is what makes it dangerous.** Nothing in the response distinguishes it from
+the desktop run that did call the engine.
+
+**This invalidates the beta's premise on mobile.** §6 scopes the beta to analysis quality:
+Grok-with-the-tool versus Grok-without-it. A mobile tester runs the second condition twice,
+sees no difference, and reports accurately that the tool adds nothing — a conclusion drawn
+from data where the tool was never used.
+
+**So: the tester runs on desktop, and is told why.** If mobile cannot be excluded, the
+tester needs a positive signal that the engine was actually called — the operator watching
+the log in real time is the only one available today, which caps mobile testing at
+supervised sessions.
+
+## 11. Tell the tester this, or it reads as our bug
+
+**On mobile, rename `.pgn` to `.txt` before uploading.** The Grok app's file picker rejects
+`.pgn` outright; the identical file as `.txt` is accepted and behaves the same
+(`docs/first-connection.md`, observed 2026-08-04).
+
+This is Grok's limitation, not the server's — the file never reaches `src/`, since Grok
+parses the PGN and sends move text in the JSON body. But the tester's natural workflow is
+to export a game from chess software, which emits `.pgn`, and the rejection offers no hint
+that renaming fixes it. Unmentioned, it costs a session and reads as a defect in the tool
+being evaluated.
+
+§6 scopes this beta to analysis quality on the premise that a tester who installs nothing
+meets no setup friction. This is the counterexample: friction that survives having nothing
+to install.
