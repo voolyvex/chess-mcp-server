@@ -1,0 +1,42 @@
+[Unit]
+Description=Chess MCP tunnel (cloudflared named tunnel to the handler on :8091)
+Documentation=https://github.com/voolyvex/chess-mcp-server
+# The tunnel is useless without the handler, but it does not crash without one —
+# cloudflared retries the origin and reports it as unreachable. Requires= would
+# make a handler failure tear the tunnel down too, and the tunnel being up is what
+# makes the failure visible from outside. Soft ordering, as with chess-mcp itself.
+After=chess-mcp.service
+Wants=chess-mcp.service
+After=network-online.target
+Wants=network-online.target
+# Do not give up: a laptop that has been closed for a week should come back with
+# the tunnel, not land in a failed state the operator discovers from the tester.
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+
+# `--no-autoupdate`: an unattended binary swap under a live beta is a worse trade
+# than a stale one. Update deliberately, when nobody is mid-session.
+ExecStart=/usr/local/bin/cloudflared --no-autoupdate --config %h/.cloudflared/config.yml tunnel run
+
+Restart=on-failure
+RestartSec=5
+# A clean `systemctl stop` delivers SIGTERM; cloudflared exits 0 on a graceful
+# shutdown, so no SuccessExitStatus override is needed here (unlike chess-mcp,
+# which installs no handler and exits 143).
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=chess-tunnel
+
+# cloudflared reads its config and credentials from ~/.cloudflared and talks to
+# the network. It needs nothing else.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=
+
+[Install]
+WantedBy=default.target
