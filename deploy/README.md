@@ -133,6 +133,15 @@ whether an IP allowlist — the only real access control available here — is p
 Do not skip this. Every remaining open question in `docs/tunnel-handoff.md` is answered by
 reading that log.
 
+**Capture the log before you prompt, not after** — journald rotates, and the first run
+(2026-08-03) lost its request records that way. `docs/first-connection.md` records what that
+run did and did not establish; the source-IP question it left open is the one that decides
+whether an IP allowlist is possible at all.
+
+```bash
+journalctl --user -u chess-tunnel.service -f | tee ~/grok-first-connect.log
+```
+
 ### Taking it down
 
 ```bash

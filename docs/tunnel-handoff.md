@@ -309,10 +309,10 @@ originally written.
 
 | # | Status after grilling |
 |---|---|
-| 0 | **Open — and now the single gating action.** Nothing else is learned until it runs. |
+| 0 | **Run 2026-08-03 — see `docs/first-connection.md`.** End-to-end works; Streamable HTTP suffices. The wire-level half was lost to a journal rotation, so Q5 and the source-IP question survive it. |
 | 1 | **Answered.** Two fields: Name, Server URL. Placeholder `https://mcp.example.com/sse`. Nothing else. |
 | 2 | **Answered: no.** No headers field exists, so no static bearer token. Kills option (2). |
-| 3 | **Unknown, and now less important.** A two-field form is consistent with both "anonymous only" and "discovers OAuth after save". Observable on first connect. |
+| 3 | **Answered: yes, it connects.** Grok reached an endpoint declaring no authentication and called the tool without demanding OAuth (`docs/first-connection.md`). |
 | 4 | **Moot.** ngrok is not the chosen vendor. |
 | 5 | **Open.** Observable in Cloudflare's logs during Q0. |
 | 6 | **Answered: analysis quality, deliberately.** The tester installs nothing. Right split for who he is. |
@@ -320,9 +320,10 @@ originally written.
 | 8 | **Answered.** ADR-0005 records the exception explicitly rather than drifting past `docs/prd.md:35` and decision 7. |
 
 A question the original list did not contain, surfaced by the `/sse` placeholder:
-**which transport does Grok speak?** Streamable HTTP works today. True HTTP+SSE stalls
-waiting for an `endpoint` event that `sseKeepAliveStream` does not emit. Contingent fix,
-small, only build it if the logs show it is needed.
+**which transport does Grok speak?** **Answered 2026-08-03: Streamable HTTP suffices.** Grok
+called the tool successfully with no `endpoint` event emitted, so the contingent SSE fix
+stays unbuilt. Note this is inferred from the call succeeding, not from reading the request —
+the journal rotation cost the direct observation.
 
 Also outstanding: **existing GitHub issue #7, "Bearer token auth on the MCP handler", is
 now unbuildable as written** and needs closing or rewriting against the ADR-0005 controls.
