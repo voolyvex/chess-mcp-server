@@ -277,6 +277,18 @@ tester needs a positive signal that the engine was actually called — the opera
 the log in real time is the only one available today, which caps mobile testing at
 supervised sessions.
 
+> **Not reversed, but read this with it (2026-08-04 evening).** Three further mobile runs
+> that same evening **all called the connector** — including one with the engine deliberately
+> saturated, and one with the game attached as a file. The 16:30 failure did not reproduce
+> under any varied condition, and Zero Trust logging was enabled only afterwards, so no
+> edge-side record of it exists or ever will (`docs/first-connection.md`).
+>
+> One failure in four, cause unknown and now unknowable. That weakens "mobile is broken" but
+> **does not retire the decision**: the failure produced a confident, roughly-correct answer
+> with invented provenance, and a rare silent failure is still silent. Revisit deliberately,
+> with the tester's supervision cost weighed against a ~1-in-4 observed rate on a sample of
+> four.
+
 ## 11. Tell the tester this, or it reads as our bug
 
 **On mobile, rename `.pgn` to `.txt` before uploading.** The Grok app's file picker rejects

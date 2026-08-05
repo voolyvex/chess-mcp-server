@@ -288,3 +288,87 @@ Desktop was not observed to have this restriction; only the mobile app was teste
 - **The verification re-ran the search locally**, not through the tunnel, and at a different
   time than Grok's call. Matching to the centipawn across all five lines makes a coincidence
   implausible, but it is reproduction, not capture of the original response.
+
+---
+
+# Mobile, three more runs (2026-08-04 evening)
+
+The 16:30 failure above is n=1, and the section closes by saying so. Three further mobile
+runs were logged the same evening, each varying one condition. **All three called the
+connector.** The failure did not reproduce.
+
+| Time | Condition | Tool-call bodies | Connector |
+|---|---|---|---|
+| 20:11 | No file, engine idle | 231, 238 | **fired**, 2 cycles |
+| 20:22 | Game attached as file, **engine deliberately saturated** | 802, 809, 376, 357 | **fired**, 4 cycles |
+| 20:31 | Game pasted as text, engine idle | 334, 341, 348 | **fired**, 3 cycles |
+
+Same `grok-connectors-manager/0.1.0`, same `/mcp`, POST only, zero errors. Each run was
+bracketed by a marked probe to prove the capture was live.
+
+## Concurrency: the engine queues, and a caller waits rather than fails
+
+`engine/server.js` holds one Stockfish process and serialises searches — one `currentRequest`,
+the rest queued (line 315). Measured directly: two concurrent 5000 ms searches on distinct
+positions returned at **4.62 s and 9.12 s**. Nothing errors; the second caller waits its turn.
+
+The 20:22 run tested whether Grok tolerates that wait. The engine was held busy by a chain of
+20 s searches (slots closing 20:22:24 and 20:22:43, bracketing every Grok call), and a 1000 ms
+probe took **5.80 s**. Grok issued four full cycles ~5 s apart and answered correctly.
+
+**No connector timeout exists at this delay.** A tester sharing the engine gets a slower
+answer, not a broken one. Whether to keep queue-and-wait or reject-when-busy is now a design
+choice made with a measurement rather than a guess.
+
+## The client's paste setting selects which input path is exercised
+
+An unlooked-for finding, and the reason the body sizes above are recorded. Grok's
+**Paste as File** setting changes what it sends:
+
+- **"Always attach as file"** → ~800-byte bodies: the full game, as a **Move Sequence**.
+- **"Always paste as text"** → ~340-byte bodies: a **position** extracted and sent instead.
+
+Both produced correct answers. But Move Sequence handling is a distinct feature with its own
+ambiguity rules, and **a client-side paste preference silently decides whether a tester
+exercises it.** Nobody would guess that from the tester's side. If the beta cares which path
+is covered, the setting has to be specified rather than left to a default.
+
+## Output quality, and the contrast with the fabricated run
+
+The 20:31 run was the most precise observed. Against the handler (`multipv: 5`,
+`movetime_ms: 5000`, `exf6` as a dedicated candidate):
+
+| Grok said | Measured |
+|---|---|
+| Qc2 ~+0.89 | **Qc2 +89** |
+| Qe2 ~+0.62 | **Qe2 +62** |
+| Qb1 / Qc1 / Qg4 positive | **Qb1 +49, Qc1 +42, Qg4** |
+| exf6 ~+0.20, delta ≈ −75 cp | **exf6 +20** |
+| "depth ~17–21" | **17** (multipv) and **21** (candidate) |
+
+Two details fabrication does not produce. It named **Qb1** — absent from the 16:30 answer and
+genuinely third. And "~17–21" brackets *both* real depths, from the two different searches it
+actually ran. Set against 16:30's flat "depth 24" (impossible here) and `exf6` "ranking
+5th–6th" (a hedge `multipv` never emits), the tells in the fabricated run are now sharper for
+having a genuine run beside them.
+
+The 20:22 run also quoted `16…f5 17.Red1`, which is inside the engine's real principal
+variation.
+
+## What is now excluded, and what is not
+
+Tested and cleared as causes of the 16:30 silence: tunnel down (it was up; a later stop was
+this session's own doing), engine saturation, file attachment, both paste settings, and the
+absence of an explicit "use the connector" instruction.
+
+**The 16:30 failure remains unexplained, and will stay that way.** Zero Trust logging was
+enabled only *after* that session, so Cloudflare retains no edge-side record of the window —
+the one source that could have separated "Grok never dispatched" from "dispatched and lost
+before reaching the tunnel" does not have the data. There is no further evidence to collect.
+
+One failure in four runs, cause unknown, not reproducible under three varied conditions. The
+honest reading is a transient client-side fault. **That is not the same as a solved problem:**
+the failure mode is real, it produces a plausible answer with invented provenance, and rarity
+does not make it visible. `docs/beta-readiness.md` §10 rests on the single failure and should
+be read against these three successes — softened, not reversed, because silence is the danger
+and infrequent silence is still silent.
