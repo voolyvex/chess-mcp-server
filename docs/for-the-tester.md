@@ -21,6 +21,10 @@ cannot tell the difference by reading it. With the engine attached, the numbers 
 
 That is it. There is no authentication step, no token to paste, and no password.
 
+**If it fails to connect, it is probably me.** The engine runs on my laptop, so when my
+machine is asleep or offline the connector simply fails. Ping me and I will turn it on —
+there is nothing for you to fix on your end.
+
 ## Check that it actually ran — this is the important part
 
 **Open the Thoughts panel on any answer.** If the engine was used, you will see:
@@ -51,18 +55,27 @@ the fix, so without this note it just looks broken.
 
 You can also paste a game as text instead. Either works.
 
-## What to try
+## What it can do — examples
 
-Use it the way you would normally analyse your own games. That is the actual test — not a
-scripted checklist.
+Use it the way you would normally analyse your own games; that is the actual test, not a
+checklist. These are just to show the shapes it handles. **If it does something other than
+what the right-hand column says, tell me** — that is a bug worth hearing about.
 
-Two things I am specifically curious about, if you feel like it:
+| Ask it something like | What it should do |
+|---|---|
+| *"Analyse this game: 1. e4 e5 2. Nf3 ..."* | Evaluate the final position |
+| *"What about after move 15 for White?"* | Jump to that exact position, not the end |
+| *"Was 16...f5 a mistake, and by how much?"* | Score that move specifically and give the cost in pawns |
+| *"What are my options here?"* | Rank several moves, best first |
+| *"Think longer on this one — 20 seconds"* | Search longer and reach a deeper result (30s is the cap) |
+
+Two cases I am especially curious about, if you feel like it:
 
 - **Quiet or unusual positions**, where opening theory runs out. That is where a real search
   should beat recall by the widest margin, and it is the case I have not tested.
-- **Ask it about a move you already suspect is bad.** It can score any legal move on its own
-  terms, including terrible ones, so "was 16...f5 a mistake and by how much" is a fair
-  question with an exact answer.
+- **A move you already suspect is bad.** It scores any legal move on its own terms, including
+  terrible ones — so it can tell you exactly how much a move cost, not just that it was
+  wrong.
 
 ## What to tell me
 
@@ -79,9 +92,7 @@ have it than a polite one.
 
 ## The caveats, stated up front
 
-- **It runs on my laptop.** If my machine is asleep or offline, the connector fails. It is
-  not a hosted service and there is no uptime promise. If it stops working, that is probably
-  me, not you — ping me.
+- **No uptime promise** — as above, it is my laptop, not a hosted service.
 - **Answers can be slow if we are both using it.** The engine handles one search at a time
   and queues the rest, so a busy moment means waiting a few extra seconds, not an error.
 - **It is a beta, running a week or two.** After that the URL stops working. I will tell you

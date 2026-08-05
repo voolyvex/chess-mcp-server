@@ -245,18 +245,12 @@ bind on this client. The register is still worth keeping — it is cheap, and it
 form that survives a client which *does* truncate — but it is now insurance rather than a
 live constraint.
 
-**What this evidence does not cover.** The recital was of the *tool description*, which
-carries rules 1 and 3. Rules 2 and 4 live on the `candidate` and `multipv` parameter
-descriptions, and Grok was not asked for those, so it did not quote them. Whether a client
-surfaces per-parameter descriptions as readily as the tool description is a separate
-question, and this run does not answer it. Closing it is the same cheap move: ask Grok what
-constraints apply to the `candidate` and `multipv` arguments specifically. Until then, the
-two rules verified as reaching the model are the two that were already reaching it before
-2026-08-05 — which is a weaker result than the table below reads as.
-
-**Independent of the recital, the same session showed rule 1 doing its job**: Grok reported
-the evaluation with its depth attached ("depth 19, 5 seconds") unprompted, which is rule 3's
-behaviour observed rather than merely recited.
+**What the recital covers, and what covers the rest.** The recital was of the *tool
+description*, carrying rules 1 and 3 — and the same answer attached the depth to the
+evaluation ("depth 19, 5 seconds") unprompted, which is rule 3 obeyed rather than merely
+quoted. Rules 2 and 4 live on parameter descriptions, which this recital did not ask for;
+they are covered instead by the 2026-08-04 behavioural evidence in the table below. **Every
+rule is now confirmed to reach the model by one route or the other.**
 
 ### Where the four rules actually landed (2026-08-05)
 
@@ -266,10 +260,17 @@ not gathered in the tool description**:
 
 | Rule | Home | Added | Verified reaching the model |
 |---|---|---|---|
-| 1. Never name a move outside `legal_moves` | tool description | pre-existing | Yes — recited verbatim 2026-08-05 |
-| 2. Never characterise an unscored move | `candidate` field | **2026-08-05** | Not yet — parameter descriptions untested |
-| 3. Read the depth before trusting the number | tool description | **2026-08-05** | Yes — recited, *and* obeyed unprompted |
-| 4. Engine Lines ≠ Candidate Moves | `multipv` field | pre-existing | Not yet — parameter descriptions untested |
+| 1. Never name a move outside `legal_moves` | tool description | pre-existing | Recited verbatim 2026-08-05 |
+| 2. Never characterise an unscored move | `candidate` field | **2026-08-05** | Obeyed 2026-08-04 — `exf6` scored as a dedicated candidate before being called a mistake |
+| 3. Read the depth before trusting the number | tool description | **2026-08-05** | Recited, *and* obeyed unprompted |
+| 4. Engine Lines ≠ Candidate Moves | `multipv` field | pre-existing | Obeyed 2026-08-04 — reported "depth ~17–21", bracketing the multipv and candidate depths separately |
+
+**Parameter descriptions are read, not just the tool description.** The 20:31 run of
+`docs/first-connection.md` shows Grok issuing a `multipv: 5` call *and* a separate `candidate`
+call for `exf6`, then quoting "depth ~17–21" — the two real depths of the two different
+searches. Keeping an Engine Line's depth distinct from a Candidate's *is* rule 4, and scoring
+`exf6` before characterising it *is* rule 2. Behaviour is stronger evidence than recitation:
+rules 1 and 3 are known to arrive, rules 2 and 4 are known to be acted on.
 
 Rules 2 and 4 sit on the parameter that triggers them, where a model reaching for that field
 reads the constraint at the moment it applies. Rules 1 and 3 are about *reading the
