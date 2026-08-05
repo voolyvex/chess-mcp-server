@@ -235,6 +235,32 @@ replacement — and, per `deploy/README.md`, it is now a **third** artifact vers
 schema it describes, and must not drift from the other two.
 
 **Open, to verify empirically:** whether Grok surfaces the full description or truncates it.
+Cheap to close: ask Grok in a fresh chat to state the tool's rules back. If it recites all
+four, the description survived intact.
+
+### Where the four rules actually landed (2026-08-05)
+
+Two were already carried before this was audited, which is why the step read as undone
+rather than half-done. All four are now in the schema, but **spread across three fields,
+not gathered in the tool description**:
+
+| Rule | Home | Added |
+|---|---|---|
+| 1. Never name a move outside `legal_moves` | tool description | pre-existing |
+| 2. Never characterise an unscored move | `candidate` field | **2026-08-05** |
+| 3. Read the depth before trusting the number | tool description | **2026-08-05** |
+| 4. Engine Lines ≠ Candidate Moves | `multipv` field | pre-existing |
+
+Rules 2 and 4 sit on the parameter that triggers them, where a model reaching for that field
+reads the constraint at the moment it applies. Rules 1 and 3 are about *reading the
+response*, so they have no parameter to attach to and belong in the description.
+
+**Written as one-sentence imperatives with the prohibition first**, deliberately: a rule
+buried mid-paragraph is diluted, and if Grok truncates, whatever sits at the end is what
+disappears. The reasoning behind each rule stays in the two `SKILL.md` files, which is what
+keeps this third artifact short enough to survive both problems. Evidence for the register:
+the two pre-existing rules are the two crisply-phrased ones, and Grok obeyed both on first
+contact (`docs/first-connection.md`).
 
 ---
 
@@ -242,10 +268,10 @@ schema it describes, and must not drift from the other two.
 
 | # | Step | Depends on | Blocked? |
 |---|---|---|---|
-| 1 | ~~Bound `movetimeMs`~~ **Done 2026-08-03**; bearer token auth still open | — | No |
+| 1 | ~~Bound `movetimeMs`~~ **Done 2026-08-03**. ~~Bearer token auth~~ **Ruled out 2026-08-04** — Grok's connector dialog sends no headers (ADR-0005) | — | No |
 | 2 | ~~Benchmark harness + 9-position fixture~~ **Done 2026-08-02** — `bench/` | — | No |
 | 3 | ~~Run on x86 here — establishes the missing baseline~~ **Done 2026-08-02** — `docs/prd.md` §8.7 | 2 | No |
-| 4 | Operator rules into the tool description | — | No |
+| 4 | ~~Operator rules into the tool description~~ **Done 2026-08-05** — all four now in the schema | — | No |
 | 5 | ARM-repin the Dockerfile (asset, checksum, `SF_BUILD`) | — | Writable, **not verifiable** here |
 | 6 | Provision Oracle; deploy; run the harness | 1, 2, 5 | **Yes — needs the instance** |
 | 7 | Compare per-phase depth; decide Oracle vs paid x86 | 3, 6 | Yes |
@@ -298,6 +324,31 @@ supervised sessions.
 > with invented provenance, and a rare silent failure is still silent. Revisit deliberately,
 > with the tester's supervision cost weighed against a ~1-in-4 observed rate on a sample of
 > four.
+
+> **Revisited and reversed, 2026-08-05. The beta is not desktop-only.**
+>
+> Three things decided it, in order of weight:
+>
+> 1. **The tester can see the provenance himself.** Grok's Thoughts panel names the tool it
+>    used — *"Used Chess MCP Server Evaluate Position"*. The failure this section is built
+>    on is therefore **not silent to the tester**, only silent in the prose. This section's
+>    central claim — "the only thing distinguishing fabricated provenance from real
+>    provenance was a log on the operator's machine" — is **wrong as written**, and
+>    `docs/first-connection.md` contains the evidence against it: the fallback was visible
+>    in the client at the time ("Grok began installing packages and running Python").
+> 2. **The platform rule did not target the failure.** Nothing establishes that the 16:30
+>    substitution was a *mobile* fact rather than a *Grok* fact observed on mobile. Desktop
+>    has one observation, not zero risk. Excluding mobile bought less than it appeared to
+>    while costing the thing being measured.
+> 3. **Desktop-only measures the wrong thing.** The premise is a tester using this on his
+>    own games in his own life. A phone is where that happens.
+>
+> **What carries the risk instead is one line in the tester's instructions**, telling him
+> what to look for and that an answer without it does not count
+> (`docs/for-the-tester.md`). §11's `.pgn` → `.txt` note is in the same document, since
+> mobile is now in scope rather than excluded.
+>
+> Unchanged: the failure mode is real and its cause is still unknown.
 
 ## 11. Tell the tester this, or it reads as our bug
 

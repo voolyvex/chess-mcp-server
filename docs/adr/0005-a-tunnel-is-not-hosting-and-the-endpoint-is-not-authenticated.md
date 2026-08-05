@@ -133,6 +133,35 @@ tester's convenience, and treat "how long until this comes down" as a question w
 attached rather than an open end. Nothing here forbids the beta; it removes the argument
 for a long one.
 
+### The date, and the supervision clause that was not taken (2026-08-05)
+
+**Handover 2026-08-05. The tunnel comes down 2026-08-19 unless deliberately renewed.**
+
+Two weeks, chosen as the outer bound of what the tester was told — "try it out for a week
+or two." He hears a duration; this file holds the date, because a soft duration told to a
+friend is an open end and the paragraph above asked for a date.
+
+**The supervised-session clause above was considered and declined.** Supervision would test
+a demo rather than the thing this beta exists to measure: whether an existing
+Grok-plus-Stockfish user reaches for the tool on his own games, unprompted, in his own
+life. An attended session answers a different question. That is a deliberate departure from
+this ADR's own recommendation, recorded rather than drifted into.
+
+**What replaces supervision as the bound is the date, and nothing else.** With the
+allowlist ruled out, the exposure is an unauthenticated endpoint on an obscure hostname,
+reachable while the operator is not watching. The date is what makes that finite. It is
+weaker than the posture this ADR recommended, and the argument for accepting it is that the
+alternative measures the wrong thing.
+
+**The other control that survived is that the tester can see provenance himself.** Grok's
+Thoughts panel names the tool it used — *"Used Chess MCP Server Evaluate Position"* — so
+the silent-fabrication failure recorded in `docs/first-connection.md` is visible to the
+tester without a log on the operator's machine, and without anything installed. This
+retired a proposal to ship a nonce in the response for the tester to check: the client
+already surfaces the signal, and a nonce would have added an instruction to remember in
+exchange for information the UI gives for free. `docs/for-the-tester.md` states the check
+in one line.
+
 **What this does not license.** No TLS code, no OAuth flow, no per-tenant anything in this
 repo. The seam is the tunnel, and it lives in `deploy/`, not `src/`. If authentication
 ever becomes reachable — a Grok UI that grows a headers field, or a different client —

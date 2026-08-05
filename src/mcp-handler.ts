@@ -46,9 +46,10 @@ const inputSchema = z.object({
     .string()
     .optional()
     .describe(
-      'A move to score on its own terms, in SAN ("Bxh6") or UCI ("c1h6"). It is played ' +
-        'and the resulting position searched, so any legal move gets an exact evaluation ' +
-        'regardless of quality.',
+      'A move to score on its own terms, in SAN ("Bxh6") or UCI ("c1h6"). Never call a ' +
+        'move good, bad, better, or an alternative unless it was scored — as a candidate ' +
+        'or in engine_lines. It is played and the resulting position searched, so any ' +
+        'legal move gets an exact evaluation regardless of quality.',
     ),
   movetime_ms: z
     .number()
@@ -240,7 +241,9 @@ function createMcpHandlerFor(engine: () => EngineClient): ReturnType<typeof crea
             'White regardless of whose turn it is. Returns numbers only — no prose. ' +
             'The response always includes legal_moves for the resolved position: check a ' +
             'move against this list before asserting it is legal, best, or playable — do ' +
-            'not rely on your own board simulation, which is an unreliable substitute.',
+            'not rely on your own board simulation, which is an unreliable substitute. ' +
+            'Read evidence.depth_reached before quoting any evaluation, and give the ' +
+            'number with the depth that produced it: a shallow search is a weaker claim.',
           inputSchema,
         },
         async (args) => {
