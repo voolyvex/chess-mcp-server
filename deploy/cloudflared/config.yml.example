@@ -1,0 +1,32 @@
+# cloudflared named-tunnel config — copy to ~/.cloudflared/config.yml and edit.
+#
+# This file is an example on purpose. The real one carries a tunnel UUID and sits
+# beside a credentials JSON that is a bearer secret for the tunnel; neither belongs
+# in the repo. See deploy/README.md for the three interactive steps that produce them.
+
+# The tunnel's UUID, printed by `cloudflared tunnel create chess-mcp` and also the
+# basename of the credentials file it writes.
+tunnel: REPLACE-WITH-TUNNEL-UUID
+credentials-file: /home/REPLACE-WITH-USER/.cloudflared/REPLACE-WITH-TUNNEL-UUID.json
+
+# Cloudflare's edge terminates TLS and forwards cleartext HTTP over the tunnel to
+# the handler's plain port. `src/index.ts` is unchanged and still speaks HTTP only —
+# ADR-0005 keeps TLS out of this codebase.
+ingress:
+  # The obscure hostname, not a guessable `mcp.`. Obscurity is not authentication
+  # (ADR-0005); it resists casual enumeration of the domain and nothing more.
+  - hostname: REPLACE-WITH-RANDOM-LABEL.thymosengine.com
+    service: http://localhost:8091
+    originRequest:
+      # The handler answers a GET asking for `text/event-stream` with a keep-alive
+      # stream that by design never ends. Without this, cloudflared would time the
+      # connection out mid-stream and the client would see the connection drop.
+      disableChunkedEncoding: false
+      connectTimeout: 30s
+      # No read timeout: an open SSE stream is the intended steady state, not a hang.
+      # A search itself is bounded by movetime_ms, well inside any sane limit.
+      noTLSVerify: false
+
+  # cloudflared requires a catch-all rule last. Anything not the hostname above is
+  # refused at the edge rather than reaching the laptop.
+  - service: http_status:404

@@ -85,14 +85,24 @@ Verified against `src/index.ts` on 2026-08-01.
 - **Every request is unbounded CPU.** `movetimeMs` is caller-supplied with no upper clamp;
   only `multipv` is range-checked (1–5). The engine runs 4 threads, 256 MB hash.
 
+  > **Partly wrong, corrected 2026-08-03 while building step 1.** The *handler* had no
+  > bound, as written. But `engine/server.js` has clamped at `STOCKFISH_MAX_MOVETIME`
+  > (30 s) since before this spec — silently, via `Math.min`. So the exposure was a 30 s
+  > search per request, not an unbounded one: still a real defect for a public URL, and
+  > still worth fixing, but smaller than "forever." The fix moves the bound to the handler
+  > and makes it **refuse** rather than clamp, because a silently shortened search reports
+  > the depth it reached as though the requested budget had bought it. The bridge clamp
+  > stays as defence in depth for any caller reaching it directly.
+
 Same-machine clients (Claude Code, Codex) are protected by locality. **Grok removes that
 protection by design** — xAI's servers are the client, so the URL is public by necessity.
 
 Two changes, both prerequisites to any public deployment:
 
-1. **Clamp `movetimeMs`** to a documented maximum. This is the difference between a bad
-   request costing two seconds and costing forever. A genuine defect for any non-local
-   deployment, independent of Grok.
+1. **Bound `movetimeMs`** at a documented maximum. A genuine defect for any non-local
+   deployment, independent of Grok. *Done 2026-08-03: `MAX_MOVETIME_MS = 30_000`, enforced
+   in `evaluatePosition` before any search dispatches, and carried in the `movetime_ms`
+   schema description so the ceiling is discoverable without reading source.*
 2. **Bearer token auth.** Converts "anyone with the URL" into "anyone with the token."
    Subject to the §1 unknown about which auth shapes Grok's connector dialog accepts —
    verify before relying on it.
@@ -225,6 +235,32 @@ replacement — and, per `deploy/README.md`, it is now a **third** artifact vers
 schema it describes, and must not drift from the other two.
 
 **Open, to verify empirically:** whether Grok surfaces the full description or truncates it.
+Cheap to close: ask Grok in a fresh chat to state the tool's rules back. If it recites all
+four, the description survived intact.
+
+### Where the four rules actually landed (2026-08-05)
+
+Two were already carried before this was audited, which is why the step read as undone
+rather than half-done. All four are now in the schema, but **spread across three fields,
+not gathered in the tool description**:
+
+| Rule | Home | Added |
+|---|---|---|
+| 1. Never name a move outside `legal_moves` | tool description | pre-existing |
+| 2. Never characterise an unscored move | `candidate` field | **2026-08-05** |
+| 3. Read the depth before trusting the number | tool description | **2026-08-05** |
+| 4. Engine Lines ≠ Candidate Moves | `multipv` field | pre-existing |
+
+Rules 2 and 4 sit on the parameter that triggers them, where a model reaching for that field
+reads the constraint at the moment it applies. Rules 1 and 3 are about *reading the
+response*, so they have no parameter to attach to and belong in the description.
+
+**Written as one-sentence imperatives with the prohibition first**, deliberately: a rule
+buried mid-paragraph is diluted, and if Grok truncates, whatever sits at the end is what
+disappears. The reasoning behind each rule stays in the two `SKILL.md` files, which is what
+keeps this third artifact short enough to survive both problems. Evidence for the register:
+the two pre-existing rules are the two crisply-phrased ones, and Grok obeyed both on first
+contact (`docs/first-connection.md`).
 
 ---
 
@@ -232,10 +268,10 @@ schema it describes, and must not drift from the other two.
 
 | # | Step | Depends on | Blocked? |
 |---|---|---|---|
-| 1 | Clamp `movetimeMs`; bearer token auth | — | No |
+| 1 | ~~Bound `movetimeMs`~~ **Done 2026-08-03**. ~~Bearer token auth~~ **Ruled out 2026-08-04** — Grok's connector dialog sends no headers (ADR-0005) | — | No |
 | 2 | ~~Benchmark harness + 9-position fixture~~ **Done 2026-08-02** — `bench/` | — | No |
 | 3 | ~~Run on x86 here — establishes the missing baseline~~ **Done 2026-08-02** — `docs/prd.md` §8.7 | 2 | No |
-| 4 | Operator rules into the tool description | — | No |
+| 4 | ~~Operator rules into the tool description~~ **Done 2026-08-05** — all four now in the schema | — | No |
 | 5 | ARM-repin the Dockerfile (asset, checksum, `SF_BUILD`) | — | Writable, **not verifiable** here |
 | 6 | Provision Oracle; deploy; run the harness | 1, 2, 5 | **Yes — needs the instance** |
 | 7 | Compare per-phase depth; decide Oracle vs paid x86 | 3, 6 | Yes |
@@ -254,3 +290,78 @@ D4 reverts to x86 and steps 5–7 largely evaporate** — the rest of the spec s
 1. **Plan tier** — individual (self-serve) or Business/Enterprise (needs an admin at
    `console.x.ai` first). A blocker worth finding now, not on test day.
 2. Confirm `grok.com` chat, not Grok Build.
+
+## 10. Desktop only — mobile silently invalidates the measurement
+
+**On 2026-08-04 the Grok mobile app answered a chess question with specific centipawn
+numbers, a ranked table, and a stated search depth, having never contacted this server.**
+The connector was enabled. Zero requests reached the tunnel; a probe minutes later proved
+the capture was live. Grok pip-installed its own engine and answered from that
+(`docs/first-connection.md`).
+
+The numbers were roughly right — +0.8 against a measured +0.89, correct move order, correct
+verdict. **That is what makes it dangerous.** Nothing in the response distinguishes it from
+the desktop run that did call the engine.
+
+**This invalidates the beta's premise on mobile.** §6 scopes the beta to analysis quality:
+Grok-with-the-tool versus Grok-without-it. A mobile tester runs the second condition twice,
+sees no difference, and reports accurately that the tool adds nothing — a conclusion drawn
+from data where the tool was never used.
+
+**So: the tester runs on desktop, and is told why.** If mobile cannot be excluded, the
+tester needs a positive signal that the engine was actually called — the operator watching
+the log in real time is the only one available today, which caps mobile testing at
+supervised sessions.
+
+> **Not reversed, but read this with it (2026-08-04 evening).** Three further mobile runs
+> that same evening **all called the connector** — including one with the engine deliberately
+> saturated, and one with the game attached as a file. The 16:30 failure did not reproduce
+> under any varied condition, and Zero Trust logging was enabled only afterwards, so no
+> edge-side record of it exists or ever will (`docs/first-connection.md`).
+>
+> One failure in four, cause unknown and now unknowable. That weakens "mobile is broken" but
+> **does not retire the decision**: the failure produced a confident, roughly-correct answer
+> with invented provenance, and a rare silent failure is still silent. Revisit deliberately,
+> with the tester's supervision cost weighed against a ~1-in-4 observed rate on a sample of
+> four.
+
+> **Revisited and reversed, 2026-08-05. The beta is not desktop-only.**
+>
+> Three things decided it, in order of weight:
+>
+> 1. **The tester can see the provenance himself.** Grok's Thoughts panel names the tool it
+>    used — *"Used Chess MCP Server Evaluate Position"*. The failure this section is built
+>    on is therefore **not silent to the tester**, only silent in the prose. This section's
+>    central claim — "the only thing distinguishing fabricated provenance from real
+>    provenance was a log on the operator's machine" — is **wrong as written**, and
+>    `docs/first-connection.md` contains the evidence against it: the fallback was visible
+>    in the client at the time ("Grok began installing packages and running Python").
+> 2. **The platform rule did not target the failure.** Nothing establishes that the 16:30
+>    substitution was a *mobile* fact rather than a *Grok* fact observed on mobile. Desktop
+>    has one observation, not zero risk. Excluding mobile bought less than it appeared to
+>    while costing the thing being measured.
+> 3. **Desktop-only measures the wrong thing.** The premise is a tester using this on his
+>    own games in his own life. A phone is where that happens.
+>
+> **What carries the risk instead is one line in the tester's instructions**, telling him
+> what to look for and that an answer without it does not count
+> (`docs/for-the-tester.md`). §11's `.pgn` → `.txt` note is in the same document, since
+> mobile is now in scope rather than excluded.
+>
+> Unchanged: the failure mode is real and its cause is still unknown.
+
+## 11. Tell the tester this, or it reads as our bug
+
+**On mobile, rename `.pgn` to `.txt` before uploading.** The Grok app's file picker rejects
+`.pgn` outright; the identical file as `.txt` is accepted and behaves the same
+(`docs/first-connection.md`, observed 2026-08-04).
+
+This is Grok's limitation, not the server's — the file never reaches `src/`, since Grok
+parses the PGN and sends move text in the JSON body. But the tester's natural workflow is
+to export a game from chess software, which emits `.pgn`, and the rejection offers no hint
+that renaming fixes it. Unmentioned, it costs a session and reads as a defect in the tool
+being evaluated.
+
+§6 scopes this beta to analysis quality on the premise that a tester who installs nothing
+meets no setup friction. This is the counterexample: friction that survives having nothing
+to install.

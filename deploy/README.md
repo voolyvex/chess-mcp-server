@@ -45,6 +45,112 @@ systemctl --user status chess-mcp.service
 journalctl --user -u chess-mcp.service -f
 ```
 
+## The tunnel (beta only)
+
+Exposes the handler to Grok's connectors, which run on xAI's infrastructure and therefore
+cannot reach `localhost`. **Read `docs/adr/0005-a-tunnel-is-not-hosting-and-the-endpoint-is-not-authenticated.md`
+before running any of this** — it records why the endpoint is unauthenticated, what that
+costs, and that the exception ends when the beta does.
+
+`chess-tunnel.service` runs `cloudflared` and is ordered after `chess-mcp.service`, on the
+same soft `Wants=`/`After=` pattern and for the same reason: the tunnel being up is what
+makes an unreachable handler visible from outside.
+
+### Three interactive steps, which no script can do for you
+
+Each needs a browser login. They are in order; DNS propagation sits between the first and
+the second.
+
+**1. Move the domain to Cloudflare's nameservers.** Add `thymosengine.com` as a zone in the
+Cloudflare dashboard (Add a site → Free plan). Cloudflare assigns a nameserver pair. At
+Namecheap, replace the existing `dns1.registrar-servers.com` / `dns2.registrar-servers.com`
+with that pair. Cloudflare emails when the zone goes active — usually minutes, allow hours.
+
+`thymosengine.com` is the right domain to move: it currently serves nothing, so nothing
+breaks. `claricengine.com` is live on GitHub Pages and moving it would mean re-creating
+those records on Cloudflare for no gain.
+
+**2. Authenticate `cloudflared` and create the tunnel.**
+
+```bash
+cloudflared tunnel login                    # blocks on a browser login — see below
+cloudflared tunnel create chess-mcp         # prints a UUID, writes ~/.cloudflared/<UUID>.json
+cloudflared tunnel route dns chess-mcp <random-label>.thymosengine.com
+```
+
+`login` is not a command that returns; it prints a `dash.cloudflare.com/argotunnel?...`
+URL, waits for you to complete it in a browser, and only then writes `~/.cloudflared/cert.pem`.
+**On WSL2 it cannot open the browser** — copy the URL into Windows by hand. The browser
+shows a zone picker; **choose the zone from step 1**, because that choice is what the
+certificate authorises. Wait for `You have successfully logged in` before running anything
+else.
+
+If `login` is skipped, interrupted, or its URL never opened, no `cert.pem` is written and
+the next command fails with `Cannot determine default origin certificate path`. That error
+means step 2 has not happened yet — not that anything is misconfigured. `ls ~/.cloudflared/cert.pem`
+distinguishes the two.
+
+Two ways to complete a login and still hit that error: being signed into a **different
+Cloudflare account** than the one holding the zone, which shows an empty picker; and
+running `create` under `sudo`, which looks for the cert in root's home rather than the
+home that `login` wrote to. Run every command in this section as the same unprivileged
+user.
+
+Step 1 must be **finished**, not merely started — a zone whose nameserver change has not
+propagated does not appear in the picker at all. `dig +short NS thymosengine.com` returning
+Cloudflare nameservers is the check.
+
+**The subdomain label is a random string, not `mcp`.** `k7m2q9x4.thymosengine.com`, not
+`mcp.thymosengine.com`. This is obscurity, which is not authentication — it resists casual
+enumeration of the domain and nothing else (ADR-0005). Generate one with
+`openssl rand -hex 4` rather than choosing something memorable.
+
+**3. Fill in the config and start the unit.**
+
+```bash
+mkdir -p ~/.cloudflared
+cp deploy/cloudflared/config.yml.example ~/.cloudflared/config.yml
+# edit: tunnel UUID, credentials-file path, hostname
+cp deploy/systemd/chess-tunnel.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now chess-tunnel.service
+```
+
+The real `config.yml` and the credentials JSON stay out of the repo. The credentials file
+is a bearer secret for the tunnel — anyone holding it can serve traffic on that hostname.
+
+### The first connection is an instrument, not a demo
+
+Connect from **the operator's own Grok account first**, before the tester receives any URL.
+Grok's Custom connector dialog takes a Name and a Server URL and nothing else; give it the
+hostname from step 2. Ask one chess question, then read Cloudflare's logs.
+
+That single exchange answers, from the wire rather than from research: which path Grok
+requests, whether it opens a `text/event-stream` GET, which MCP transport it speaks, what
+headers it actually sends, and what source addresses it arrives from. The last one decides
+whether an IP allowlist — the only real access control available here — is possible at all.
+
+Do not skip this. Every remaining open question in `docs/tunnel-handoff.md` is answered by
+reading that log.
+
+**Capture the log before you prompt, not after** — journald rotates, and the first run
+(2026-08-03) lost its request records that way. `docs/first-connection.md` records what that
+run did and did not establish; the source-IP question it left open is the one that decides
+whether an IP allowlist is possible at all.
+
+```bash
+journalctl --user -u chess-tunnel.service -f | tee ~/grok-first-connect.log
+```
+
+### Taking it down
+
+```bash
+systemctl --user disable --now chess-tunnel.service
+```
+
+The beta's end is the tunnel's end. Leaving an unauthenticated endpoint up past the point
+where someone is watching it is the failure mode ADR-0005 exists to name.
+
 ## Skills
 
 The operator discipline ships in two places, same content, different conventions:

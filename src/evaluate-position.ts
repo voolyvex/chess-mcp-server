@@ -15,6 +15,24 @@ export { START_FEN };
  */
 export const MAX_MULTIPV = 5;
 
+/**
+ * The longest search budget a caller may ask for, in milliseconds.
+ *
+ * Not a tuning knob — a bound on what one request can spend. Without it `movetimeMs` is
+ * unbounded CPU: the engine runs four threads, and a single caller can occupy all of them
+ * for as long as they name. Locality hid that while the only clients were same-machine;
+ * a public URL removes the protection (`docs/beta-readiness.md` §4).
+ *
+ * 30_000 matches the ceiling the engine bridge already enforced via `STOCKFISH_MAX_MOVETIME`,
+ * so this narrows *where* the bound is applied rather than changing what it is. A request
+ * asking for more is refused here, before a search is dispatched — the bridge clamped
+ * silently, which returns a shallower search than the one asked for without saying so.
+ *
+ * A candidate search is a second search on the same budget, so one request can legitimately
+ * spend twice this. The bound is per search, not per request.
+ */
+export const MAX_MOVETIME_MS = 30_000;
+
 export interface EvaluatePositionInput {
   /** Start Position. Defaults to the standard array. */
   readonly fen?: string;
@@ -158,6 +176,21 @@ export async function evaluatePosition(
     throw new Error(
       `multipv must be an integer from 1 to ${MAX_MULTIPV}, got ${String(input.multipv)}`,
     );
+  }
+
+  // Refused rather than clamped, for the same reason as `multipv` above: a silently
+  // shortened search answers a different question than the one asked, and the depth it
+  // reaches would be read as the depth the requested budget bought.
+  if (input.movetimeMs !== undefined) {
+    if (
+      !Number.isInteger(input.movetimeMs) ||
+      input.movetimeMs < 1 ||
+      input.movetimeMs > MAX_MOVETIME_MS
+    ) {
+      throw new Error(
+        `movetimeMs must be an integer from 1 to ${MAX_MOVETIME_MS}, got ${String(input.movetimeMs)}`,
+      );
+    }
   }
 
   const sequence = parseMoveSequence(input.moves, input.fen);
