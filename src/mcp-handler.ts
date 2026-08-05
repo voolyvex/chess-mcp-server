@@ -1,7 +1,7 @@
 import { createMcpHandler, McpServer } from '@modelcontextprotocol/server';
 import { z } from 'zod';
 import type { EngineClient } from './engine-client.js';
-import { evaluatePosition, MAX_MULTIPV } from './evaluate-position.js';
+import { evaluatePosition, MAX_MOVETIME_MS, MAX_MULTIPV } from './evaluate-position.js';
 
 /** How the tool is addressed. One tool, named for the question it answers. */
 export const TOOL_NAME = 'evaluate_position';
@@ -53,9 +53,15 @@ const inputSchema = z.object({
   movetime_ms: z
     .number()
     .int()
-    .positive()
+    .min(1)
+    .max(MAX_MOVETIME_MS)
     .optional()
-    .describe('Wall-clock search budget in milliseconds. Depth is an outcome, not an input.'),
+    .describe(
+      `Wall-clock search budget in milliseconds, 1-${MAX_MOVETIME_MS}. Depth is an outcome, ` +
+        'not an input. A budget above the maximum is an error, never silently shortened: a ' +
+        'clamped search reaches a shallower depth than the one asked for, and nothing in the ' +
+        'response would say so.',
+    ),
   multipv: z
     .number()
     .int()

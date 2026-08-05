@@ -85,14 +85,24 @@ Verified against `src/index.ts` on 2026-08-01.
 - **Every request is unbounded CPU.** `movetimeMs` is caller-supplied with no upper clamp;
   only `multipv` is range-checked (1–5). The engine runs 4 threads, 256 MB hash.
 
+  > **Partly wrong, corrected 2026-08-03 while building step 1.** The *handler* had no
+  > bound, as written. But `engine/server.js` has clamped at `STOCKFISH_MAX_MOVETIME`
+  > (30 s) since before this spec — silently, via `Math.min`. So the exposure was a 30 s
+  > search per request, not an unbounded one: still a real defect for a public URL, and
+  > still worth fixing, but smaller than "forever." The fix moves the bound to the handler
+  > and makes it **refuse** rather than clamp, because a silently shortened search reports
+  > the depth it reached as though the requested budget had bought it. The bridge clamp
+  > stays as defence in depth for any caller reaching it directly.
+
 Same-machine clients (Claude Code, Codex) are protected by locality. **Grok removes that
 protection by design** — xAI's servers are the client, so the URL is public by necessity.
 
 Two changes, both prerequisites to any public deployment:
 
-1. **Clamp `movetimeMs`** to a documented maximum. This is the difference between a bad
-   request costing two seconds and costing forever. A genuine defect for any non-local
-   deployment, independent of Grok.
+1. **Bound `movetimeMs`** at a documented maximum. A genuine defect for any non-local
+   deployment, independent of Grok. *Done 2026-08-03: `MAX_MOVETIME_MS = 30_000`, enforced
+   in `evaluatePosition` before any search dispatches, and carried in the `movetime_ms`
+   schema description so the ceiling is discoverable without reading source.*
 2. **Bearer token auth.** Converts "anyone with the URL" into "anyone with the token."
    Subject to the §1 unknown about which auth shapes Grok's connector dialog accepts —
    verify before relying on it.
@@ -232,7 +242,7 @@ schema it describes, and must not drift from the other two.
 
 | # | Step | Depends on | Blocked? |
 |---|---|---|---|
-| 1 | Clamp `movetimeMs`; bearer token auth | — | No |
+| 1 | ~~Bound `movetimeMs`~~ **Done 2026-08-03**; bearer token auth still open | — | No |
 | 2 | ~~Benchmark harness + 9-position fixture~~ **Done 2026-08-02** — `bench/` | — | No |
 | 3 | ~~Run on x86 here — establishes the missing baseline~~ **Done 2026-08-02** — `docs/prd.md` §8.7 | 2 | No |
 | 4 | Operator rules into the tool description | — | No |
