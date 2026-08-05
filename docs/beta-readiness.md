@@ -35,9 +35,11 @@ Desktop — a different company, one letter apart. The surfaces are `grok.com` w
 iOS/Android, Grok Build CLI, and the API.
 
 **Unknowns xAI's docs do not settle**, to be resolved empirically during setup rather than
-assumed: the exact auth shapes a custom connector accepts (the docs say only "complete any
-required authentication"), whether tool descriptions are truncated, and whether `grok.com`
-chat has any per-connector instructions field.
+assumed: ~~the exact auth shapes a custom connector accepts~~ (**closed 2026-08-04** — the
+dialog has two fields, Name and Server URL, and sends no headers: ADR-0005); ~~whether tool
+descriptions are truncated~~ (**closed 2026-08-05** — they are not; Grok recited the
+description verbatim, §7); and whether `grok.com` chat has any per-connector instructions
+field.
 
 **Working assumption:** individual paid plan, mobile-first, browser available. If the
 tester's reply contradicts this, revisit §1 before building.
@@ -234,9 +236,21 @@ The repo skill stays for clients that support skills. The description is the flo
 replacement — and, per `deploy/README.md`, it is now a **third** artifact versioned with the
 schema it describes, and must not drift from the other two.
 
-**Open, to verify empirically:** whether Grok surfaces the full description or truncates it.
-Cheap to close: ask Grok in a fresh chat to state the tool's rules back. If it recites all
-four, the description survived intact.
+**Closed 2026-08-05: Grok does not truncate the description.** Asked to state the tool's
+rules back, Grok returned the description word for word — through to the final clause, *"a
+shallow search is a weaker claim."* Compared against `src/mcp-handler.ts`: no elision, no
+paraphrase, no dropped tail. The concern that shaped the writing (§ below: put the
+prohibition first, because a truncated tail loses whatever sits at the end) turns out not to
+bind on this client. The register is still worth keeping — it is cheap, and it is the only
+form that survives a client which *does* truncate — but it is now insurance rather than a
+live constraint.
+
+**What the recital covers, and what covers the rest.** The recital was of the *tool
+description*, carrying rules 1 and 3 — and the same answer attached the depth to the
+evaluation ("depth 19, 5 seconds") unprompted, which is rule 3 obeyed rather than merely
+quoted. Rules 2 and 4 live on parameter descriptions, which this recital did not ask for;
+they are covered instead by the 2026-08-04 behavioural evidence in the table below. **Every
+rule is now confirmed to reach the model by one route or the other.**
 
 ### Where the four rules actually landed (2026-08-05)
 
@@ -244,12 +258,19 @@ Two were already carried before this was audited, which is why the step read as 
 rather than half-done. All four are now in the schema, but **spread across three fields,
 not gathered in the tool description**:
 
-| Rule | Home | Added |
-|---|---|---|
-| 1. Never name a move outside `legal_moves` | tool description | pre-existing |
-| 2. Never characterise an unscored move | `candidate` field | **2026-08-05** |
-| 3. Read the depth before trusting the number | tool description | **2026-08-05** |
-| 4. Engine Lines ≠ Candidate Moves | `multipv` field | pre-existing |
+| Rule | Home | Added | Verified reaching the model |
+|---|---|---|---|
+| 1. Never name a move outside `legal_moves` | tool description | pre-existing | Recited verbatim 2026-08-05 |
+| 2. Never characterise an unscored move | `candidate` field | **2026-08-05** | Obeyed 2026-08-04 — `exf6` scored as a dedicated candidate before being called a mistake |
+| 3. Read the depth before trusting the number | tool description | **2026-08-05** | Recited, *and* obeyed unprompted |
+| 4. Engine Lines ≠ Candidate Moves | `multipv` field | pre-existing | Obeyed 2026-08-04 — reported "depth ~17–21", bracketing the multipv and candidate depths separately |
+
+**Parameter descriptions are read, not just the tool description.** The 20:31 run of
+`docs/first-connection.md` shows Grok issuing a `multipv: 5` call *and* a separate `candidate`
+call for `exf6`, then quoting "depth ~17–21" — the two real depths of the two different
+searches. Keeping an Engine Line's depth distinct from a Candidate's *is* rule 4, and scoring
+`exf6` before characterising it *is* rule 2. Behaviour is stronger evidence than recitation:
+rules 1 and 3 are known to arrive, rules 2 and 4 are known to be acted on.
 
 Rules 2 and 4 sit on the parameter that triggers them, where a model reaching for that field
 reads the constraint at the moment it applies. Rules 1 and 3 are about *reading the
@@ -261,6 +282,10 @@ disappears. The reasoning behind each rule stays in the two `SKILL.md` files, wh
 keeps this third artifact short enough to survive both problems. Evidence for the register:
 the two pre-existing rules are the two crisply-phrased ones, and Grok obeyed both on first
 contact (`docs/first-connection.md`).
+
+*Half of that reasoning was retired on 2026-08-05 — Grok does not truncate (above). The
+dilution half stands, and the brevity is what made the verbatim recital legible enough to
+check against the source in the first place.*
 
 ---
 
@@ -344,8 +369,8 @@ supervised sessions.
 >    own games in his own life. A phone is where that happens.
 >
 > **What carries the risk instead is one line in the tester's instructions**, telling him
-> what to look for and that an answer without it does not count
-> (`docs/for-the-tester.md`). §11's `.pgn` → `.txt` note is in the same document, since
+> what to look for and that an answer without it does not count — sent to him directly,
+> not tracked in this repo. §11's `.pgn` → `.txt` note is in the same message, since
 > mobile is now in scope rather than excluded.
 >
 > Unchanged: the failure mode is real and its cause is still unknown.
