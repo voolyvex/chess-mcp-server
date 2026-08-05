@@ -21,9 +21,8 @@ cannot tell the difference by reading it. With the engine attached, the numbers 
 
 That is it. There is no authentication step, no token to paste, and no password.
 
-**If it fails to connect, it is probably me.** The engine runs on my laptop, so when my
-machine is asleep or offline the connector simply fails. Ping me and I will turn it on —
-there is nothing for you to fix on your end.
+**If it does not connect, it may just need a restart on my end — send me a text and I will
+sort it.** Nothing to troubleshoot on your side.
 
 ## Check that it actually ran — this is the important part
 
@@ -92,7 +91,7 @@ have it than a polite one.
 
 ## The caveats, stated up front
 
-- **No uptime promise** — as above, it is my laptop, not a hosted service.
+- **It may occasionally need a restart** — text me and it will be back up shortly.
 - **Answers can be slow if we are both using it.** The engine handles one search at a time
   and queues the rest, so a busy moment means waiting a few extra seconds, not an error.
 - **It is a beta, running a week or two.** After that the URL stops working. I will tell you
