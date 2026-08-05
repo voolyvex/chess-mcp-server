@@ -369,8 +369,8 @@ supervised sessions.
 >    own games in his own life. A phone is where that happens.
 >
 > **What carries the risk instead is one line in the tester's instructions**, telling him
-> what to look for and that an answer without it does not count
-> (`docs/for-my-friend.md`). §11's `.pgn` → `.txt` note is in the same document, since
+> what to look for and that an answer without it does not count — sent to him directly,
+> not tracked in this repo. §11's `.pgn` → `.txt` note is in the same message, since
 > mobile is now in scope rather than excluded.
 >
 > Unchanged: the failure mode is real and its cause is still unknown.

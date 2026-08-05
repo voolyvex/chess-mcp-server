@@ -159,7 +159,7 @@ the silent-fabrication failure recorded in `docs/first-connection.md` is visible
 tester without a log on the operator's machine, and without anything installed. This
 retired a proposal to ship a nonce in the response for the tester to check: the client
 already surfaces the signal, and a nonce would have added an instruction to remember in
-exchange for information the UI gives for free. `docs/for-my-friend.md` states the check
+exchange for information the UI gives for free. The tester's instructions state the check
 in one line.
 
 **What this does not license.** No TLS code, no OAuth flow, no per-tenant anything in this
